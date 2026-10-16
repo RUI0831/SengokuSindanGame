@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>戦国武将性格診断 ～あなたは戦国時代の誰に似ている？～</title>
+<meta name="description" content="15の質問から、あなたに最も近い戦国武将を診断するエンターテインメント診断です。">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<a class="skip" href="#main">本文へ</a>
+<main id="main">
+
+  <!-- スタート画面 -->
+  <section id="screen-start" class="screen screen-start" aria-labelledby="start-title">
+    <div class="start-frame" aria-hidden="true"></div>
+    <!-- 背景の大きな家紋(薄く、ゆっくり回転) -->
+    <svg class="deco-crest-bg" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+      <circle cx="100" cy="100" r="96" fill="none" stroke="#d4af37" stroke-width="3" />
+      <circle cx="100" cy="100" r="88" fill="none" stroke="#d4af37" stroke-width="1.5" />
+      <circle cx="100" cy="52" r="24" fill="#d4af37" />
+      <circle cx="145.7" cy="85.2" r="24" fill="#d4af37" />
+      <circle cx="128.2" cy="138.8" r="24" fill="#d4af37" />
+      <circle cx="71.8" cy="138.8" r="24" fill="#d4af37" />
+      <circle cx="54.3" cy="85.2" r="24" fill="#d4af37" />
+      <circle cx="100" cy="100" r="14" fill="#0a0c12" stroke="#d4af37" stroke-width="3" />
+    </svg>
+    <!-- 左右の幟旗 -->
+    <svg class="deco-banner deco-banner-left" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 220" width="64" height="220">
+      <line x1="6" y1="0" x2="6" y2="220" stroke="#8c6d1f" stroke-width="4" />
+      <rect x="4" y="8" width="56" height="5" fill="#d4af37" />
+      <rect x="10" y="13" width="46" height="160" fill="#9b1b30" stroke="#d4af37" stroke-width="1.5" />
+      <circle cx="33" cy="52" r="15" fill="none" stroke="#f2d572" stroke-width="3" />
+      <circle cx="33" cy="52" r="6" fill="#f2d572" />
+      <path d="M22,96 L44,96 M22,112 L44,112 M22,128 L44,128" stroke="#f2d572" stroke-width="3" />
+      <path d="M10,173 L33,160 L56,173" fill="none" stroke="#d4af37" stroke-width="1.5" />
+    </svg>
+    <svg class="deco-banner deco-banner-right" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 220" width="64" height="220">
+      <line x1="58" y1="0" x2="58" y2="220" stroke="#8c6d1f" stroke-width="4" />
+      <rect x="4" y="8" width="56" height="5" fill="#d4af37" />
+      <rect x="8" y="13" width="46" height="160" fill="#9b1b30" stroke="#d4af37" stroke-width="1.5" />
+      <circle cx="31" cy="52" r="15" fill="none" stroke="#f2d572" stroke-width="3" />
+      <path d="M31,40 L35,52 L31,64 L27,52 Z M19,52 L31,48 L43,52 L31,56 Z" fill="#f2d572" />
+      <path d="M20,96 L42,96 M20,112 L42,112 M20,128 L42,128" stroke="#f2d572" stroke-width="3" />
+      <path d="M8,173 L31,160 L54,173" fill="none" stroke="#d4af37" stroke-width="1.5" />
+    </svg>
+
+    <div class="start-content">
+      <p class="start-kicker">～あなたは戦国時代の誰に似ている？～</p>
+      <h1 id="start-title" class="start-title" tabindex="-1">戦国武将性格診断</h1>
+      <p class="start-sub">もしあなたが戦国時代に生まれていたら、どの武将に似ていたのか？</p>
+      <p class="start-desc">15の質問からあなたの性格を分析。織田信長、徳川家康、伊達政宗など、名だたる戦国武将の中から、あなたに最も近い人物を診断します。</p>
+      <button type="button" id="btn-start" class="btn btn-primary btn-start">いざ、診断開始！</button>
+      <button type="button" id="btn-player-ranking" class="btn btn-ranking">みんなの結果ランキング</button>
+      <button type="button" id="btn-zukan" class="btn btn-zukan">戦国武将図鑑</button>
+      <p class="start-note">全15問・約2〜3分。名前などの個人情報は入力しません。</p>
+      <p class="disclaimer">※本アプリはエンターテインメント用の診断です。歴史上の人物の性格を科学的に判定するものではありません。</p>
+    </div>
+
+    <!-- 城のシルエット(天守 3 層) -->
+    <svg class="deco-castle" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 260" width="600" height="260">
+      <g fill="#0d1018" stroke="#d4af37" stroke-width="1.5" stroke-linejoin="round" opacity="0.9">
+        <path d="M0,260 L0,226 L20,226 L20,218 L40,218 L40,226 L60,226 L60,218 L80,218 L80,226 L100,226 L100,218 L120,218 L120,226 L160,226 L160,260 Z" />
+        <path d="M600,260 L600,226 L580,226 L580,218 L560,218 L560,226 L540,226 L540,218 L520,218 L520,226 L500,226 L500,218 L480,218 L480,226 L440,226 L440,260 Z" />
+        <path d="M150,260 L180,204 L420,204 L450,260 Z" />
+        <path d="M180,204 L190,204 L196,226 L186,260 M420,204 L410,204 L404,226 L414,260" fill="none" stroke-width="1" />
+        <rect x="205" y="160" width="190" height="44" />
+        <path d="M172,166 Q198,160 212,142 L388,142 Q402,160 428,166 Z" />
+        <rect x="236" y="112" width="128" height="30" />
+        <path d="M212,118 Q234,112 246,96 L354,96 Q366,112 388,118 Z" />
+        <rect x="262" y="70" width="76" height="26" />
+        <path d="M242,76 Q262,70 272,48 L328,48 Q338,70 358,76 Z" />
+        <path d="M282,48 L286,36 L292,44 M318,48 L314,36 L308,44" fill="none" />
+      </g>
+      <g fill="#d4af37" opacity="0.85">
+        <rect x="222" y="174" width="14" height="16" /><rect x="252" y="174" width="14" height="16" />
+        <rect x="282" y="174" width="14" height="16" /><rect x="304" y="174" width="14" height="16" />
+        <rect x="334" y="174" width="14" height="16" /><rect x="364" y="174" width="14" height="16" />
+        <rect x="256" y="120" width="12" height="14" /><rect x="294" y="120" width="12" height="14" /><rect x="332" y="120" width="12" height="14" />
+        <rect x="282" y="76" width="10" height="14" /><rect x="308" y="76" width="10" height="14" />
+      </g>
+    </svg>
+
+    <a id="open-ranking" class="staff-link" href="#screen-ranking">運営用(集計)</a>
+  </section>
+
+  <!-- 質問画面 -->
+  <section id="screen-question" class="screen screen-question" aria-labelledby="q-text" hidden>
+    <div class="q-wrap">
+      <div class="q-head">
+        <div class="q-head-row">
+          <span id="q-count" class="q-count">Q1 / 15</span>
+          <span id="q-scene" class="q-scene"></span>
+        </div>
+        <div id="q-progress" class="progress" role="progressbar" aria-label="回答の進み具合"
+             aria-valuemin="1" aria-valuemax="15" aria-valuenow="1" aria-valuetext="15問中1問目">
+          <div class="progress-fill"></div>
+        </div>
+      </div>
+      <h2 id="q-text" class="q-text" tabindex="-1"></h2>
+      <div class="options" role="group" aria-labelledby="q-text">
+        <button type="button" class="opt" data-index="0" aria-pressed="false"><span class="opt-label" aria-hidden="true">A</span><span class="opt-text"></span></button>
+        <button type="button" class="opt" data-index="1" aria-pressed="false"><span class="opt-label" aria-hidden="true">B</span><span class="opt-text"></span></button>
+        <button type="button" class="opt" data-index="2" aria-pressed="false"><span class="opt-label" aria-hidden="true">C</span><span class="opt-text"></span></button>
+        <button type="button" class="opt" data-index="3" aria-pressed="false"><span class="opt-label" aria-hidden="true">D</span><span class="opt-text"></span></button>
+      </div>
+      <div class="q-nav">
+        <button type="button" id="btn-prev" class="btn btn-sub btn-nav" disabled aria-disabled="true">前の質問へ</button>
+        <button type="button" id="btn-next" class="btn btn-sub btn-nav" hidden>次の質問へ</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 診断演出 -->
+  <section id="screen-analyzing" class="screen screen-analyzing" aria-labelledby="analyzing-title" hidden>
+    <h2 id="analyzing-title" class="visually-hidden" tabindex="-1">診断中</h2>
+    <div class="analyzing-stage" aria-hidden="true">
+      <span class="ripple ripple-1"></span>
+      <span class="ripple ripple-2"></span>
+      <span class="ripple ripple-3"></span>
+      <svg class="analyzing-crest" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="200" height="200">
+        <circle cx="100" cy="100" r="94" fill="none" stroke="#d4af37" stroke-width="4" />
+        <circle cx="100" cy="100" r="84" fill="none" stroke="#d4af37" stroke-width="1.5" />
+        <g fill="#d4af37">
+          <ellipse cx="100" cy="58" rx="12" ry="28" />
+          <ellipse cx="100" cy="58" rx="12" ry="28" transform="rotate(45 100 100)" />
+          <ellipse cx="100" cy="58" rx="12" ry="28" transform="rotate(90 100 100)" />
+          <ellipse cx="100" cy="58" rx="12" ry="28" transform="rotate(135 100 100)" />
+          <ellipse cx="100" cy="58" rx="12" ry="28" transform="rotate(180 100 100)" />
+          <ellipse cx="100" cy="58" rx="12" ry="28" transform="rotate(225 100 100)" />
+          <ellipse cx="100" cy="58" rx="12" ry="28" transform="rotate(270 100 100)" />
+          <ellipse cx="100" cy="58" rx="12" ry="28" transform="rotate(315 100 100)" />
+        </g>
+        <circle cx="100" cy="100" r="13" fill="#0a0c12" stroke="#d4af37" stroke-width="3" />
+      </svg>
+    </div>
+    <p id="analyzing-msg" class="analyzing-msg" role="status" aria-live="polite"></p>
+  </section>
+
+  <!-- 結果画面(中身は results.js が描く。reset で空にする) -->
+  <section id="screen-result" class="screen screen-result" aria-labelledby="result-heading" hidden>
+    <div id="result-root"></div>
+  </section>
+
+  <!-- ランキング画面 -->
+  <section id="screen-ranking" class="screen screen-ranking" hidden>
+    <div id="ranking-root"></div>
+  </section>
+
+  <!-- みんなの結果ランキング(来場者向け。中身は player-ranking.js が描く) -->
+  <section id="screen-player-ranking" class="screen screen-player-ranking" aria-label="みんなの結果ランキング" hidden>
+    <div id="player-ranking-root"></div>
+  </section>
+
+  <!-- 戦国武将図鑑(診断なしで武将の情報を見られる。中身は zukan.js が描く) -->
+  <section id="screen-zukan" class="screen screen-zukan" aria-label="戦国武将図鑑" hidden>
+    <div id="zukan-root"></div>
+  </section>
+</main>
+
+<dialog id="dlg-general" class="dlg"></dialog>
+<dialog id="dlg-confirm" class="dlg dlg-confirm"></dialog>
+<dialog id="dlg-card" class="dlg"></dialog>
+
+<div id="idle-toast" class="toast idle-toast" role="status" hidden>
+  <span>操作がないため、まもなく最初の画面に戻ります</span>
+  <button type="button" class="btn btn-sub btn-small">続ける</button>
+</div>
+<div id="toast" class="toast" role="status" hidden></div>
+<div id="fatal" class="fatal" role="alert" hidden></div>
+
+<script src="js/util.js"></script>
+<script src="js/questions.js"></script>
+<script src="js/generals.js"></script>
+<script src="js/diagnosis.js"></script>
+<script src="js/reason.js"></script>
+<script src="js/compat.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/crest.js"></script>
+<script src="js/chart.js"></script>
+<script src="js/results.js"></script>
+<script src="js/player-ranking.js"></script>
+<script src="js/zukan.js"></script>
+<script src="js/share-card.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

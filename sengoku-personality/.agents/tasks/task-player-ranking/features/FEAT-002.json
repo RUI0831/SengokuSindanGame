@@ -1,0 +1,32 @@
+{
+    "id":  "FEAT-002",
+    "type":  "test",
+    "description":  "来場者向けランキングの browser-check 新シナリオ \u0027player-ranking\u0027 の追加、Chrome/Edge 実行、スクリーンショットの撮影と目視、README と build-fix-log の更新(ranking-plan.md の項目 5〜7)。FEAT-001 完了後に行う。",
+    "status":  "completed",
+    "steps":  [
+                  "tools/browser-check.js に scenarioPlayerRanking を追加し SCENARIOS[\u0027player-ranking\u0027] に登録(all に含まれる)。内容は ranking-plan.md 項目 5 の a〜k: スタートから開ける/0 件文言/種データで人数・割合・TOP3/今日↔累計切替とキー操作/結果画面から開閉しても counted・回答・結果 DOM・合計が不変(往復 3 回、リサイズ、リロード)/最初に戻るで DOM が空/来場者画面と結果画面にリセット・削除・運営用の操作が無い(DOM 全体の文言・属性・details・隠しショートカットのキー入力)/運営用は #open-ranking 経由で確認付きリセットが動く/無操作自動復帰/localStorage 不可で『集計を読み込めませんでした』等+診断が動く/console エラー 0/reduced-motion/1280x800 と 390x844 で横スクロールなし",
+                  "scenarioScreens に来場者向け画面のスクリーンショットを追加(start-with-button, player-ranking-empty, player-ranking-total, player-ranking-from-result(ハイライト), result-with-button を 1280 と 390 で)",
+                  "Chrome と Edge で browser-check を実行し、スクリーンショットを .agents\\tasks\\screens\\chrome と edge に保存。read_file で画像を開いて目視(文字の欠け・はみ出し・装飾との重なり・結果画面のボタン折り返し・TOP3・バッジ)。問題を見つけたら直して撮り直し、『問題なし』と断定せず見た内容を findings に書く",
+                  "README.md: 4 章『ランキングの見方』を来場者向けと運営用に分けて書き直し(場所、違い、来場者側にリセットが無いこと、結果画面の導線変更)、ファイル構成表に js/player-ranking.js、13 章の検査数・シナリオ表・スクリーンショットの所見・未確認項目を実測値で更新",
+                  ".agents\\tasks\\build-fix-log.md の末尾に今回の作業記録(UTF-8 で追記。既存部分は変えない)",
+                  "全体検証 ranking-plan.md 3 章の 1〜6 を実行"
+              ],
+    "acceptance_criteria":  [
+                                "node tools\\browser-check.js --browser chrome --scenario player-ranking が ALL PASS",
+                                "node tools\\browser-check.js --browser edge --scenario player-ranking が ALL PASS",
+                                "node tools\\browser-check.js --browser chrome と --browser edge の all が ALL PASS(既存 153 項目+新シナリオ分)",
+                                "node tools\\browser-check.js --browser chrome --http --scenario smoke が ALL PASS",
+                                "node tools\\simulate.js が ALL PASS、node tools\\check-static.js が OK",
+                                "1280x800 と 390x844 のスクリーンショットが .agents\\tasks\\screens\\ 配下に保存され、目視の所見が findings に書かれている",
+                                "README の説明が実装と一致し、数字が実測値と同じ"
+                            ],
+    "verification":  [
+                         "node tools\\simulate.js",
+                         "node tools\\check-static.js",
+                         "node tools\\browser-check.js --browser chrome --screenshots \"c:\\Users\\村上琉伊\\Desktop\\大学祭\\性格診断ゲーム戦国武将バージョン\\sengoku-personality\\.agents\\tasks\\screens\\chrome\"",
+                         "node tools\\browser-check.js --browser edge --screenshots \"c:\\Users\\村上琉伊\\Desktop\\大学祭\\性格診断ゲーム戦国武将バージョン\\sengoku-personality\\.agents\\tasks\\screens\\edge\"",
+                         "node tools\\browser-check.js --browser chrome --http --scenario smoke"
+                     ],
+    "blocked_reason":  null,
+    "findings":  "検証(cwd=ROOT): simulate=ALL PASS、check-static=OK (14 files)、browser-check chrome=ALL PASS (184 checks)、edge=ALL PASS (184 checks)、chrome --http smoke=ALL PASS (29 checks)。新シナリオ player-ranking は 28 項目。スクリーンショットは screens\\chrome と screens\\edge に保存。目視したのは Chrome の 390x844 と 1280x800 の start-with-button、player-ranking-empty-390、player-ranking-total、player-ranking-from-result、result-with-button。見えた内容: スタートの新ボタンは開始ボタンの下で城や幟旗と重ならない。390幅で長い名前の行は人数と割合が2行に折り返す。TOP3 は金銀銅の枠と順位の文字で区別できるが銀と銅は差が小さい。「あなた」バッジは小さいが読める。結果画面のボタンは390で縦3つ、1280で横3つ、折り返しの崩れは見えない。0件画面は390で下半分が空白。運営用(集計)リンクは1280x800で右下端に小さく、城と一緒に切れて見える。未目視: Edge の画像、player-ranking-empty-1280、player-ranking-total-all-*。未確認: 実機スマホ、Firefox/Safari、スクリーンリーダー。"
+}

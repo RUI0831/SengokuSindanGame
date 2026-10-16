@@ -1,0 +1,83 @@
+{
+  "verdict": "CHANGES_REQUESTED",
+  "counts": {
+    "HIGH": 0,
+    "MEDIUM": 2,
+    "NIT": 7
+  },
+  "findings": [
+    {
+      "id": 1,
+      "severity": "MEDIUM",
+      "title": "類似度の整数表示が上位で飽和し、TOP3 の順位が見た目で区別できない。B-21 の記述も事実と異なる",
+      "location": "B-8 (similarity/rankGenerals), B-11 結果画面6, B-12, B-21, AC-8, AC-10",
+      "problem": "設計書の配点・パラメータで一様乱数50,000通り(seed 777)を診断して実測: 1位と2位の表示%が同じになる割合39.3%、1位と3位まで同じ13.5%、1位-2位差の中央値1ポイント(p90で2)。結果画面は「90% / 90% / 89%」が日常的になり、要件§12の例(92/86/81)と体感が違う。同点時の並びは決定的だが来場者には理由が見えない。B-21は「上位に並ぶ武将の差は数ポイント」と書いており実測と合わない。TOP3/一覧で同じ%が並ぶときの表示規則もない。",
+      "fix": "式(要件§8)は変えず表示だけ変える。rankGenerals の各行に similarityExact = Math.round(pctRaw*10)/10 を追加(similarity の整数は従来どおり、AC-10とカードPNGの大見出し用)。結果画面の大見出しは整数のまま、TOP3と20人一覧は小数1桁で表示。AC-8に similarityExact の非増加を追加し simulate.js #6 で検査。simulate.js に表示のみの検査#16(上位の差: 整数%が同じ割合、similarityExact が同じ割合が5%超ならWARN)を追加。B-21を「上位3人の差は中央値1ポイント程度。整数%では39%の結果で1位と2位が同じ表示になるため、TOP3と一覧は小数1桁で表示する」に書き換える。"
+    },
+    {
+      "id": 2,
+      "severity": "MEDIUM",
+      "title": "集団全体の回答傾向(協調・慎重寄り、大胆寄り)に対する偏り検査がなく、軽い傾きで特定の武将に集中する",
+      "location": "A-5, AC-11, AC-30, B-19 #2/#3/#15, B-21",
+      "problem": "#2(等確率)、#3(試行ごとに軸重みを引き直す=集団として打ち消し合う)、#15(文字への偏り)は、集団全体が同じ方向へ傾く場合を含まない。選択確率を exp(beta * sum(w_k * 配点_k)) に比例させて実測(各30,000通り): 協調寄り w=(0,0,0,+1,+1,-1) beta=0.10 で徳川家康22.8%(20人出現、最少 織田信長0.17%)、beta=0.15 で家康34.0%(15人出現、信長0.01%)、beta=0.20 で家康42.7%(12人出現)。大胆寄り w=(+1,+1,0,0,-1,+1) beta=0.15 で長宗我部元親26.2%(16人出現)。beta=0.10 は1つの選択肢が他の約1.5〜1.8倍選ばれる程度の傾き。要件§17の「一部の武将がほとんど出現しない/特定武将に集中」を現行検査では検出できない。現行データは beta=0.10 で閾値内だが余裕は約2ポイント。",
+      "fix": "simulate.js に検査#16「集団バイアス耐性」を追加しAC-32を新設。集団: 協調寄り[0,0,0,1,1,-1]、大胆寄り[1,1,0,0,-1,1]、社交[0,0,0,1,0,0]、慎重[0,0,0,0,1,0]、知略[0,0,1,0,0,0]。mulberry32(20240701 + 集団index*10 + round(beta*100))、各20,000通り、1問につき rnd() 1回で weight=exp(beta*sum(w_k*scores_k)) の比例選択。合格(beta=0.10): 1位の最多25%以下かつ0.1%以上で出現する武将18人以上(現行は協調寄り22.8%/20人、大胆寄り17.9%/19人で合格)。警告のみ(beta=0.15): 最多35%超でWARN(現行34.0%)。B-21に既知の制限(協調・慎重寄りで家康・氏康に集中)を書き、調整手順に「#16が落ちたら最少の武将を集団の重心に近づける」を追記する。"
+    },
+    {
+      "id": 3,
+      "severity": "NIT",
+      "title": "B-9 手順3の候補の選び方に2通りの解釈があり、補完率の実測値が再現できない",
+      "location": "B-9 手順3, B-19 #11, B-19 再計測結果(理由文)",
+      "problem": "「diff<=15を候補とし、符号が同じものを優先」が、符号が異なる軸を候補(2段目)とするのか補完用の残りに入れるのか不明。1位の組30,000通りで実装比較: 字義どおり(異符号は候補にしない)は補完11.6%、異符号も2段目の候補にすると7.1%(設計書の約7%と一致)。どちらも usedOppositeFill は0件でAC-28を満たすが同じ入力で文章が変わる。補完された軸は diff が最大29でもP3が数値が近いことが共通点と言い切る(字義解釈でsharedAxesの3.9%がdiff>15)。",
+      "fix": "手順3を擬似コードで確定: eligible=反対でない軸、near=eligibleのうちdiff<=15、tier1=near中の同符号をstrength降順(同値はdiff昇順→軸順)、tier2=near中の異符号を同順、picked=tier1.concat(tier2).slice(0,2)。足りなければeligibleの残りをdiff昇順で補い、補った軸のlevels.userはmid。diff>15の軸を含むときはP3の結びを「…は、今回の診断では比較的近い軸でした」に切り替える。"
+    },
+    {
+      "id": 4,
+      "severity": "NIT",
+      "title": "TOP3 カードと「くわしく見る」ボタンのクリックが二重に発火し得る。ダイアログの再オープンも未規定",
+      "location": "B-11 結果画面6, B-3 openGeneralDialog",
+      "problem": "カード全体もクリック可で、内側に「くわしく見る」ボタンもある。両方にハンドラを付けるとバブリングで openGeneralDialog が2回呼ばれ、実装によっては開いているdialogへのshowModalがInvalidStateErrorになる。クリック可能な要素の中のボタンはキーボードで同じ操作に2回止まる。",
+      "fix": "ハンドラは結果画面のルート1か所のイベント委譲にし、カードはli、フォーカスを受けるのは内側のボタンのみ。カード全体のクリックは closest('[data-general-id]') で受ける。openGeneralDialog の冒頭に if (dlg.open) return; を置き、showModal が例外なら open 属性を付ける(B-15の既存規則)。20人一覧の行も同じ規則にする。"
+    },
+    {
+      "id": 5,
+      "severity": "NIT",
+      "title": "toBlob に時間切れがなく保存ボタンが作成中のまま戻らない恐れ。SVG読込の10秒もNFR-3と食い違う",
+      "location": "B-13 generate() の制御フロー, NFR-3",
+      "problem": "svg-timeout(10秒)はあるが toBlob のコールバックが呼ばれない場合の時間切れがなく、state.cardBusy が立ったままボタンが無効のままになる。NFR-3は生成2秒以内(目安)だが、SVG読込失敗時は10秒待ってからprimitive描画に進む。",
+      "fix": "toBlob を Promise.race([toBlobPromise, timeout(3000)]) で包み、時間切れは blob:null で続行(dataUrlが主経路)。SVG_LOAD_TIMEOUT_MS を4000に下げる。NFR-3に「失敗時のフォールバックを含めて5秒以内」と追記する。"
+    },
+    {
+      "id": 6,
+      "severity": "NIT",
+      "title": "1080x1920 の PNG を data URL にしたときの長さの上限が未検証",
+      "location": "B-13 保存とプレビュー, B-21 未検証の前提",
+      "problem": "プレビューのimgと保存リンクは result.dataUrl を使う。青海波・グラデーション・家紋を重ねた1080x1920のPNGは内容により数百KB〜2MB前後になり得る。Chromium系はURL全体に約2MBの上限があり、大きなdata URLをimgやa downloadに渡したときの挙動はブラウザと版で異なる可能性がある。B-21の未検証の前提に入っていない。主経路はblobのダウンロードなので保存自体は成功し得るが、プレビューが空になる恐れがある。",
+      "fix": "手動確認9に生成PNGのバイト数と dataUrl.length の記録を追加。dataUrl.length が1,500,000を超え、かつ blob が非nullのとき、プレビューの img に URL.createObjectURL(blob) を使い、onClosed で revoke する分岐をB-13に追記。B-21の未検証の前提に(6)として加える。"
+    },
+    {
+      "id": 7,
+      "severity": "NIT",
+      "title": "スマホ縦画面の規則が質問画面以外(結果・開始・ダイアログ)で薄い",
+      "location": "B-10, B-11, NFR-8",
+      "problem": "質問画面は高さ予算まで具体的だが、他は1カラム・ボタン全幅止まり。武将名(h2、特大)のフォントサイズ(6文字の長宗我部元親が320pxで折り返すかはみ出すか)、レーダーsvgの幅、武将詳細ダイアログと#dlg-cardの最大高さ・内部スクロール・閉じるボタンの位置、ダブルタップ拡大(touch-action)が未規定。回答は240msで遷移するため連続タップで拡大されると操作しにくい。",
+      "fix": "B-10に追記: .general-name{font-size:clamp(32px,9vw,64px);overflow-wrap:anywhere}、.radar svg{width:100%;max-width:360px;height:auto}、dialog.dlg{width:min(92vw,640px);max-height:90dvh;overflow:auto}、dialog .dlg-close{position:sticky;top:0}、dialog#dlg-card img{max-width:100%;max-height:60dvh;object-fit:contain}、button,a,summary{touch-action:manipulation}。手動確認12に「結果画面と武将詳細ダイアログを360x640で開き閉じるボタンに届くこと」を追加。"
+    },
+    {
+      "id": 8,
+      "severity": "NIT",
+      "title": "「似ている理由」の武将ごとの自然な文章(要件§11)が史実1文以外はテンプレート",
+      "location": "B-9, 要件§11",
+      "problem": "要件は説明文は武将ごとに自然な文章になるように、と求める。第3版は固定の結び文を廃止しP1/P3を軸から機械生成するため矛盾はないが、20人のP1/P3は軸ラベルと水準語を差し替えた同じ文型になる。武将固有なのはP2(史実1文)のみ。",
+      "fix": "必須ではない。余力があれば武将ごとに軸別の短い言い回しを reason.flavor:{leadership:'…',…}(6項目、診断では…で始める)として持たせP3で水準語の代わりに使う。入れない場合はB-9に「P1・P3は共通テンプレート、武将固有の文はP2のみ。要件§11の武将ごとに自然は、P2と武将名の差し込みで満たすと解釈する」と明記する。"
+    },
+    {
+      "id": 9,
+      "severity": "NIT",
+      "title": "細かい未定義(setAnswer、uid、Q1の前の質問へ、reset の退避キー)",
+      "location": "B-4, B-3 (SG.Util.uid), B-12 (reset)",
+      "problem": "B-4が setAnswer に言及するが定義がない。SG.Util.uid(prefix) の生成方法が未規定(Math.random だと同じ回答でDOM IDが変わり、本体に乱数がないというB-2の記述と見た目が食い違う)。Q1の前の質問へ(非表示/無効/スタートへ)が未規定。store.reset() が読込時に退避した ...:stats:corrupt キーを消すか不明。",
+      "fix": "setAnswer(i, idx) を app.js の private 関数として定義(answers[i]=idx; state.diagnosis=null;)。uid はモジュール内カウンタ(return prefix + '-' + (++n))と明記。Q1の前の質問へは disabled + aria-disabled=true で表示を残す(B-10の高さ予算は表示ありで計算済み)。reset() は退避キーも削除するとB-12に追記する。"
+    }
+  ],
+  "reviewDoc": "c:\\Users\\村上琉伊\\Desktop\\大学祭\\性格診断ゲーム戦国武将バージョン\\sengoku-personality\\.agents\\tasks\\design-review.md"
+}

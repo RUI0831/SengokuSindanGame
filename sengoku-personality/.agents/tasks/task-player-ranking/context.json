@@ -1,0 +1,19 @@
+{
+  "project_type": "バニラ JS の静的 Web アプリ(file:// で動く和風の性格診断ゲーム)。ビルドなし。",
+  "language": "JavaScript(ES5 風の classic script、var/function)、HTML5、CSS3。日本語コメント。",
+  "build_system": "なし。npm 依存ゼロ。index.html の classic <script> の並びが依存順(util, questions, generals, diagnosis, reason, storage, crest, chart, results, share-card, app)。ES Modules・fetch・?.・??・import/export・http(s):// は禁止(check-static が検査)。",
+  "test_framework": "自作: tools/simulate.js(Node)、tools/check-static.js(静的検査)、tools/browser-check.js(Chrome/Edge を CDP で操作。シナリオ関数を SCENARIOS に登録)",
+  "build_command": "node --check js\\<file>.js(変更した JS ごと)",
+  "test_command": "node tools\\simulate.js ; node tools\\check-static.js ; node tools\\browser-check.js --browser chrome ; node tools\\browser-check.js --browser edge ; node tools\\browser-check.js --browser chrome --http --scenario smoke",
+  "verification_instructions": "cwd=ROOT で実行。simulate は 'RESULT: ALL PASS'、check-static は 'check-static: OK (n files)'、browser-check は 'RESULT: ALL PASS (n checks)' と exit 0。スクリーンショットは --screenshots \"ROOT\\.agents\\tasks\\screens\\<chrome|edge>\" で保存し read_file で目視。",
+  "snapshot_or_generated_files": ".agents\\tasks\\screens\\chrome\\*.png と edge\\*.png(browser-check の --screenshots が生成。チェックイン対象ではなく目視用)。",
+  "environment_constraints": "ROOT=c:\\Users\\村上琉伊\\Desktop\\大学祭\\性格診断ゲーム戦国武将バージョン\\sengoku-personality。Windows PowerShell(&& を使わず ; )。git リポジトリではない(コミット・push しない)。相対パスはワークスペース親に落ちるので常に絶対パス。ブラウザは自分が起動した PID だけ終了(Stop-Process -Name chrome/msedge 禁止)。ファイルは書き込みツールで UTF-8(Set-Content/Out-File 禁止)。design.md / design-review.* / plan.md は上書き禁止。コンソール出力は文字化けして見えることがあるが、ファイルは UTF-8 で正しい。",
+  "contribution_requirements": ".agents\\tasks\\task-sengoku-personality\\step-rules.md を必読。検査の閾値を緩めない。要件にない機能を足さない。重要処理に日本語コメント。README に変更を反映。",
+  "key_patterns": "状態と画面遷移は js/app.js だけが持つ(state, showScreen(phase), SCREENS, idleLimit, reset)。表示は js/results.js が描く(esc は SG.Util.esc、イベント委譲は bind/unbindAll、clear(rootEl))。集計は SG.Storage(キー sengoku-personality:v1:stats、{v:1,total,daily}、getCounts(scope)=[{id,count}] 降順、例外を投げない)。ランキング加算は app.js enterResult() の 1 か所(state.counted)。運営用ランキング画面は results.js renderRankingScreen()(#ranking-root、staff-menu 内の data-action=reset、確認は SG.Results.confirm)。UMD 風エクスポート: SG.X = {...}; if (typeof module !== 'undefined' && module.exports) { module.exports = SG.X; }",
+  "relevant_files": [
+    "index.html", "js/app.js", "js/results.js", "js/storage.js", "js/util.js", "css/style.css",
+    "tools/check-static.js", "tools/simulate.js", "tools/browser-check.js", "README.md",
+    ".agents/tasks/ranking-plan.md", ".agents/tasks/build-fix-log.md", ".agents/tasks/task-sengoku-personality/step-rules.md"
+  ],
+  "directory_structure": "ROOT/index.html、css/style.css、js/*.js(各モジュール)、tools/*.js(検証)、assets/images/CREDITS.md、README.md、.agents/tasks/(計画・記録・screens\\ にスクリーンショット)。新規: js/player-ranking.js。"
+}

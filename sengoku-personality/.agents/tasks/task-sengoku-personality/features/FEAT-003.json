@@ -1,0 +1,29 @@
+{
+  "id": "FEAT-003",
+  "type": "test",
+  "description": "tools/browser-check.js に、残りのシナリオ(questions・analyzing・result・dialog・ranking・reset-confirm・card・no-storage・idle・image-fallback・layout・reduced-motion・keyboard とスクリーンショット)を足す。Chrome・Edge・--http で実行し、見つかった UI の不具合を直す。日本語の README.md と assets/images/CREDITS.md を書き、動作確認の記録を実測値で埋める。FEAT-001・002 に依存する",
+  "status": "completed",
+  "steps": [
+    "最初に plan.md の 1 章・2 章(AC-8 の変更と AC-32〜34)・3 章の項目 17〜19・4 章・5 章と、design.md の A-5(AC 一覧)・B-19 の手動確認・B-20・B-21 を読む。FEAT-001・002 の findings も読む",
+    "項目 17: plan.md 項目 17 の各シナリオを、AC 番号付きの PASS/FAIL で実装する。card は Browser.setDownloadBehavior を使い、PNG の IHDR で 1080x1920 を確かめ、console の usedFallback=false も確かめる。31 秒後のプレビューも確かめる。layout は 6 つの幅の横スクロールと、360x540 の Q1〜Q15 の縦スクロール、360x640 の閉じるボタンを確かめる。idle は SG_CONFIG_OVERRIDE を使う。no-storage と image-fallback は addScriptToEvaluateOnNewDocument を使う",
+    "Chrome(--screenshots ROOT\\.agents\\tasks\\screens\\chrome)、Edge(--screenshots ROOT\\.agents\\tasks\\screens\\edge)、Chrome の --http --scenario smoke を実行する。FAIL は原因を直してから再実行する(テストを甘くして通すことは禁止)。スクリーンショットを read_file で目視して、表示崩れを直す",
+    "項目 18: README.md を plan.md 項目 18 の 13 節で書く(1.2 の検証結果の表は FEAT-001 の findings の実測値を転記する)。assets/images/CREDITS.md も書く(外部画像は不使用という宣言と記録様式)",
+    "項目 19: 3 つのコマンドと simulate・check-static を再実行し、README の動作確認記録を実測値で埋める(ブラウザのバージョン、各シナリオの結果、usedFallback、PNG のバイト数と dataUrlLength、スクショの所見、未確認の項目)。B-19 の手動確認 1〜14 とシナリオの対応表も載せる。一時ファイルを消す"
+  ],
+  "acceptance_criteria": [
+    "node tools\\browser-check.js --browser chrome と --browser edge が、どちらも全シナリオ PASS で exit 0(card では usedFallback=false)",
+    "node tools\\browser-check.js --browser chrome --http --scenario smoke が exit 0",
+    "node tools\\simulate.js と node tools\\check-static.js が exit 0",
+    "README.md に step prompt の必須項目がすべて見出しとして存在し、動作確認記録が実際の出力と一致している",
+    "assets/images/CREDITS.md が存在する",
+    "ROOT に一時ファイル(__tmp.js やブラウザのプロファイルなど)が残っていない"
+  ],
+  "verification": [
+    "cwd=ROOT で: node tools\\browser-check.js --browser chrome --screenshots \"<ROOT>\\.agents\\tasks\\screens\\chrome\"",
+    "cwd=ROOT で: node tools\\browser-check.js --browser edge --screenshots \"<ROOT>\\.agents\\tasks\\screens\\edge\"",
+    "cwd=ROOT で: node tools\\browser-check.js --browser chrome --http --scenario smoke",
+    "cwd=ROOT で: node tools\\simulate.js ; node tools\\check-static.js"
+  ],
+  "blocked_reason": null,
+  "findings": "【検証結果(最後のコード変更のあとに実行。cwd=ROOT)】node tools\\browser-check.js --browser chrome --screenshots <ROOT>\\.agents\\tasks\\screens\\chrome → RESULT: ALL PASS (144 checks) exit 0。node tools\\browser-check.js --browser edge --screenshots <ROOT>\\.agents\\tasks\\screens\\edge → RESULT: ALL PASS (144 checks) exit 0。node tools\\browser-check.js --browser chrome --http --scenario smoke → RESULT: ALL PASS (29 checks) exit 0。node tools\\simulate.js → RESULT: ALL PASS (warnings: 0) exit 0。node tools\\check-static.js → check-static: OK (13 files) exit 0(README 作成後にも再実行)。js/*.js と tools/*.js すべて node --check 成功。\n【ブラウザ】Chrome 154.0.8037.98、Edge 154.0.4258.62、Node v24.15.0。PC の日付 2026-10-09。\n【card】Chrome・Edge とも file:// で usedFallback=false。console: 'ShareCard: usedFallback=false bytes=1495460 dataUrlLength=1993970'(真田幸村)。ダウンロードした sengoku-sanada-yukimura.png は 1,495,460 バイトで IHDR 1080×1920(ログの bytes と一致)。生成からプレビュー表示まで Chrome 1202ms / Edge 1701ms(5 秒以内)。31 秒後もプレビューの naturalWidth 1080 で、src から読み直しても 1080。no-storage・image-fallback(石田三成)では bytes=1291253 dataUrlLength=1721694、usedFallback=false。PNG は screens\\chrome と screens\\edge にコピーして目視(タイトル・武将名・代替カード・類似度・タイプ・6 項目あり)。\n【追加したシナリオ】questions(11)・analyzing(6)・result(14)・dialog(11)・ranking(10)・reset-confirm(10)・card(11)・no-storage(6)・idle(9)・image-fallback(6)・layout(9)・reduced-motion(5)・keyboard(6)・screens(1。--screenshots のときだけ撮影)+ smoke(29)= 144。page に clickAt / key(Tab・Enter・Escape)/ addInit / removeInit を追加。全シナリオで Browser.setDownloadBehavior を一時フォルダに向けている(ユーザーの Downloads に書かない)。主な実測: 演出の文言 Chrome 0/839/1669ms・結果 2560ms(Edge 0/848/1668・2552)、smoke の最後の回答→結果 2801ms(http 2806ms)、idle 警告 2035ms・満了 3044ms(設定 3000/1000)、360×540 の Q1〜Q15 の scrollHeight 最大 540/540、360×640 の閉じるボタンは詳細ダイアログ・画像プレビューとも表示領域内(スクロール後も)。\n【直した不具合(テストは緩めていない)】(1) js/share-card.js: 1080×1920 の toBlob が TOBLOB_TIMEOUT_MS(1500)を超えて blob=null になることがあった(3 回中 2 回)。時間切れ・非対応のときは dataUrl から同じ内容の Blob を作る blobFromDataUrl を追加(以後 bytes が毎回記録され、プレビューは 1.5MB 超で blob URL)。(2) js/share-card.js: カード下端の注記(y=1870)が内側の金罫線(y=1868)と重なっていた → y=1850。(3) js/results.js・js/app.js: 画像プレビューを閉じたとき、生成中に保存ボタンが disabled になってフォーカスが外れるため body にフォーカスが戻っていた → openCardPreview の handlers に任意の opener を追加し、app.js が保存ボタンを渡す(既存の契約は不変)。テスト側の修正: ダイアログを閉じた直後のフォーカス確認は close イベントが非同期なので最大 1 秒待つ(focusIs)。閉じた details の中身は矩形の高さが 0 にならないため checkVisibility() で非表示を判定。\n【README・CREDITS】README.md は plan.md 項目 18 の 13 節(必須見出し: 起動方法・オフライン展示(USB・F11・キオスク)・ランキングのリセット・localStorage は共有されない・質問の変更方法・武将の追加方法・パラメータの変更方法・分布の検証(simulate.js の実行方法)・画像の差し替えと出典の記録・免責)。検証結果の表は FEAT-001 の実測値、動作確認記録は上の実測値と B-19 手動確認 1〜14 の対応表。assets/images/CREDITS.md は外部画像不使用の宣言と記録様式。外部 URL は書いていない。\n【スクリーンショットの所見】screens\\chrome・screens\\edge の start/question/analyzing/result(全体)/dialog/card/ranking の 390・1280、layout-q1/q15-360x540、layout-dialog/card-360x640 を目視。欠け・はみ出し・重なりなし。スタート画面 390 幅の右下「運営用(集計)」は意図的に薄い小さな文字で、城の石垣の装飾に一部重なるが読めて押せる(そのまま)。\n【未確認】Firefox・Safari・iOS 実機、python -m http.server(未インストール。Node の http で代替確認)、bfcache 復元(コード確認のみ)、実機スマホのタッチ、キオスクのダウンロードバブル、2 回目以降の自動ダウンロード(ヘッドレスでは 2 回目のファイルが保存されなかった。生成とプレビューは成功。複数ダウンロードの許可が必要と推測し README 5 章に記載)。\n【片付け】%TEMP%\\sg-* は 0 件。ROOT の .agents 以外は index.html・README.md・assets/images/CREDITS.md・css/style.css・js 11 本・tools 3 本だけ(__tmp.js やプロファイルなし)。git は使っていない。"
+}

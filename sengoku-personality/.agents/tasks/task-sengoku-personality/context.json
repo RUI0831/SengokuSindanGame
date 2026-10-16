@@ -1,0 +1,24 @@
+{
+  "project_type": "静的な単一ページの Web アプリ(index.html + classic script 11本 + style.css)と、Node 標準モジュールだけで書く検証ツール(tools/)。ビルドなし",
+  "language": "JavaScript(ES2019まで。?. ?? import export は禁止)、HTML5、CSS3。UI・コメント・README は日本語",
+  "build_system": "なし。npm・package.json・バンドラは使わない。git リポジトリではない(git init もコミットもしない。進捗は FEAT ファイルの status/findings に書く)。構文チェックは node --check <file>",
+  "test_framework": "自作の Node スクリプト。tools/simulate.js(純粋ロジック・分布。#1〜#13・#15・#16・#17)、tools/check-static.js(外部通信・ESM などの静的禁止。#14)、tools/browser-check.js(ヘッドレス Chrome/Edge を CDP で操作する E2E)。どれも FAIL があると exit 1",
+  "build_command": "なし(各 JS で node --check js\\<file>.js)",
+  "test_command": "cwd=ROOT で: node tools\\simulate.js ; node tools\\check-static.js ; node tools\\browser-check.js --browser chrome(browser-check は FEAT-002 の項目16で作る)",
+  "verification_instructions": "1) 変更した JS で node --check。2) node tools\\simulate.js が exit 0 で 'RESULT: ALL PASS'(FEAT-001 以降)。3) node tools\\check-static.js が exit 0(FEAT-002 項目15以降)。4) node tools\\browser-check.js --browser chrome [--scenario smoke] が exit 0(FEAT-002 項目16以降)。FEAT-003 では Edge と --http でも実行する。5) UI の見た目は --screenshots <ROOT>\\.agents\\tasks\\screens\\<name> で撮り、read_file で画像を目視する。plan.md の各項目の Verify 行が正",
+  "snapshot_or_generated_files": "生成物はリポジトリに含めない。スクリーンショットとダウンロードした PNG は ROOT\\.agents\\tasks\\screens\\ 配下(成果物ではない)。ブラウザのプロファイルとダウンロードの一時フォルダは %TEMP% に作り、終了時に消す",
+  "environment_constraints": "ROOT = c:\\Users\\村上琉伊\\Desktop\\大学祭\\性格診断ゲーム戦国武将バージョン\\sengoku-personality。ワークスペースのルートは ROOT の親なので、相対パスのファイル操作は親フォルダに落ちる。常に絶対パスを使い、コマンドは cwd=ROOT で実行する。Windows PowerShell では区切りに ; を使い && は使わない。パスに日本語を含むので必ず引用符で囲む。ファイルは書き込みツールで UTF-8 で作る(Set-Content/Out-File は使わない)。Node v24.15.0(グローバル fetch/WebSocket あり)。Chrome: C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe。Edge: C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe。python は未インストール(WindowsApps のスタブで exit 9009)なので使わない。http の確認は Node の http モジュールで行う。長く動くプロセスはバックグラウンドで起動し、最後に必ず終了する。ブラウザは自分で起動した PID だけを終了する(Stop-Process -Name chrome/msedge は禁止。ユーザーのブラウザが閉じる)。ヘッドレスは --headless=new --disable-gpu --hide-scrollbars --no-first-run --no-default-browser-check --remote-debugging-port=0 --user-data-dir=<一時フォルダ>。ポートは <user-data-dir>\\DevToolsActivePort の1行目。この方法が日本語の file:// パスでも動くことは実測済み",
+  "contribution_requirements": "step prompt の絶対制約(plan.md 冒頭と 1 章に反映済み)を守る。外部 API・CDN・外部フォント・fetch/XHR を app 本体で使わない。file:// で動くように classic script のみを使う。質問・武将・診断ロジック・表示処理はファイルを分ける。状態は answers だけで持ち、スコアは毎回全計算する。アプリ本体に乱数・日時で結果が変わる処理を入れない。分布の調整はデータだけで行い、結果の後操作は禁止。重要な処理には日本語のコメントを書く。ライセンスを確認できない画像は使わない(画像は crest.js の自作 SVG)。design.md・design-review.* は上書きしない",
+  "key_patterns": "全 JS は UMD 風 IIFE: (function (root) { 'use strict'; var SG = root.SG = root.SG || {}; ...; SG.X = {...}; if (typeof module !== 'undefined' && module.exports) module.exports = SG.X; })(typeof window !== 'undefined' ? window : globalThis);。依存先は呼び出し時に root.SG.Xxx を参照する。データは深く Object.freeze する。データ由来の文字列は必ず SG.Util.esc() を通す。フォント名は単一引用符で囲み、SG.Util.fonts が唯一の定義。コメントにも http(s):// を書かない(SVG 名前空間だけ可)。SVG は二重引用符の属性で、要素を閉じた整形式の XML。<style>/<image>/<foreignObject> は使わない。画面は section の hidden 属性で切り替える。ダイアログは <dialog> と showModal(例外なら open 属性)",
+  "relevant_files": [
+    "ROOT\\.agents\\tasks\\plan.md(実装計画。1章=確定した設計判断、3章=項目ごとの手順と Verify)",
+    "ROOT\\.agents\\tasks\\design.md(正となる設計。B-3 API 契約、B-4 状態遷移、B-5 配点表、B-7 武将データ、B-8 診断、B-9 理由文、B-10 デザイン、B-11 画面、B-12 ランキング、B-13 画像保存、B-14 家紋 SVG、B-19 テスト、B-20 README)",
+    "ROOT\\.agents\\tasks\\design-review.md(残り指摘の詳細。plan.md 1章で解消方法を確定済み)",
+    "ROOT\\index.html", "ROOT\\css\\style.css",
+    "ROOT\\js\\util.js", "ROOT\\js\\questions.js", "ROOT\\js\\generals.js", "ROOT\\js\\diagnosis.js", "ROOT\\js\\reason.js",
+    "ROOT\\js\\storage.js", "ROOT\\js\\crest.js", "ROOT\\js\\chart.js", "ROOT\\js\\results.js", "ROOT\\js\\share-card.js", "ROOT\\js\\app.js",
+    "ROOT\\tools\\simulate.js", "ROOT\\tools\\check-static.js", "ROOT\\tools\\browser-check.js",
+    "ROOT\\README.md", "ROOT\\assets\\images\\CREDITS.md"
+  ],
+  "directory_structure": "ROOT/index.html、css/style.css、js/(SG 名前空間のモジュール 11 本。読み込み順は B-3)、assets/images/(CREDITS.md のみ。画像はない)、tools/(Node の検証ツール 3 本)、README.md、.agents/tasks/(設計書・計画・FEAT・レビュー・スクリーンショット。成果物ではない)"
+}

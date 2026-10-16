@@ -1,0 +1,31 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "データと純粋ロジックのモジュール 7 本と分布検証ツールを作る: js/util.js、questions.js(B-5 の 15 問を第 3 版の並びで)、generals.js(B-7 の 20 人と史実の文章)、diagnosis.js(B-8 + similarityExact)、reason.js(B-9 + NIT3 の確定版手順 3)、storage.js(B-12 + 退避キーの削除)、crest.js(B-14)、tools/simulate.js(#1〜#13・#15・#16・#17)。最初は設計書の値で、プロトタイプの実測値が再現されることを確かめる。そのあと徳川家康のパラメータを調整する(plan.md 1.2)。DOM には依存しない。Node だけで検証できる。FEAT-002・003 の前提になる",
+  "status": "completed",
+  "steps": [
+    "最初に ROOT\\.agents\\tasks\\plan.md の 0 章・1 章・3 章の項目 1〜9 と、design.md の B-1・B-3・B-5・B-6・B-7・B-8・B-9・B-12・B-14・B-19 を読む",
+    "項目 1: js/util.js(esc の 5 文字、localDateKey、clamp、カウンタ方式の uid、fonts.serif/sans)",
+    "項目 2: js/questions.js。B-5 の Q1〜Q15 を表の行の順に一字一句転記し、深く freeze する",
+    "項目 3: js/generals.js。B-7 の 20 人を表の順に並べる(家康はまだ 59,37,56,47,72,34)。crest は表どおり。name は '真田幸村（信繁）'。文章は plan.md 項目 3 の規則で書く(文末の規則、断定しない、imageOfType は『診断では』で始める、history に軸ラベルを入れない)",
+    "項目 4: js/diagnosis.js。B-8 に加えて EXPECTED_GENERAL_COUNT=20、plan.md 1.1 の similarityExact(切り捨て+保険のクランプ)、両方の類似度のクランプ、validateData の全項目",
+    "項目 5: js/reason.js。plan.md 項目 5 の手順 3(tier1/tier2/補完/最終手段)、allNear、P1 の『近い』と P3 の『比較的近い軸でした』の切り替え。PHRASES と GENERAL_WORDS を公開する",
+    "項目 6: js/storage.js。B-12 のとおり。reset() で退避キーも削除する。require したときに副作用がないこと",
+    "項目 7: js/crest.js。B-14 の 17 種の kind と 6 種の pattern。整形式の XML、title オプション、uid による ID 接頭辞",
+    "項目 8: tools/simulate.js。mulberry32 は plan.md のコードそのまま。乱数の消費順と seed は plan.md 項目 8 と B-19 のとおり。#1(Q1〜Q5 の要件の文字列と完全一致、範囲表の一致を含む)〜#13、#15、#16(plan.md 1.2)、#17(plan.md 1.1)。設計書の値で plan.md 項目 8 の期待値が小数 2 桁で再現されることを確かめる",
+    "項目 9: 家康を 59,37,56,45,73,34 に変えて再実行する。1 件でも FAIL なら設計書の値に戻す。採用した値と主な実測値(#2・#3・#9・#11 の補完率・#15・#16・#17・最近接ペア)を findings に書く"
+  ],
+  "acceptance_criteria": [
+    "node tools\\simulate.js が exit 0 で 'RESULT: ALL PASS (warnings: n)' を出す",
+    "設計書の値で実行したとき、#2 が 6.26%/2.48%、#3 が 8.57%/0.75%、#15 が 13.7%/29.1%、#16 協調寄り β0.10 が 22.86% を再現する(調整前の確認)",
+    "AC-3・AC-9・AC-10・AC-11・AC-12・AC-13・AC-27・AC-28・AC-30・AC-31・AC-32・AC-33 を simulate が検査し、すべて PASS",
+    "require('./js/storage.js') したときにグローバルの localStorage と window に触れない(#12)",
+    "js/*.js のどれにも ?. ?? import export と http(s):// が含まれない(SVG 名前空間を除く)"
+  ],
+  "verification": [
+    "cwd=ROOT で: node --check js\\util.js ; node --check js\\questions.js ; node --check js\\generals.js ; node --check js\\diagnosis.js ; node --check js\\reason.js ; node --check js\\storage.js ; node --check js\\crest.js",
+    "cwd=ROOT で: node tools\\simulate.js(exit 0、RESULT: ALL PASS)"
+  ],
+  "blocked_reason": null,
+  "findings": "【採用した家康の値】調整後の [統率59, 行動37, 知略56, 社交45, 慎重73, 革新34] を採用(設計書の 社交47・慎重72 から 社交−2・慎重+1)。調整後も全検査 PASS(RESULT: ALL PASS (warnings: 0)、exit 0)。generals.js の家康の行にコメントで記録済み。\n【調整前(設計書の値)の実測。plan.md の期待値と小数 2 桁で一致 = 乱数の消費順は定義どおり】#2 直江兼続 6.26% / 北条氏康 2.48%、#3 北条氏康 8.57% / 直江兼続 0.75%、#4 直江/加藤/前田/元親・文字間最大差 2.9/6.4/6.4/7.3/8.2/8.9、#15 最大 13.7%(p=0.7)/29.1%(p=0.85)・全集団 20 人、#16 β0.10 協調寄り 徳川家康 22.86%・大胆寄り 0.1%以上 18 人(家康 0.08%)、β0.15 協調寄り 33.86%、#17 39.39%/13.57%/4.94%・差の中央値 0.6・p90 1.9、最近接ペア 家康–氏康 8.66、#9 25.9%〜33.9%、#11 補完率 7.07%。\n【調整後(採用値)の実測】#1 最近接ペア 徳川家康–北条氏康 9.06。#2 一様 100,000: 最多 直江兼続 6.58% / 最少 徳川家康 3.00%(20 人出現)。#3 傾向付き 100,000: 最多 北条氏康 9.76% / 最少 直江兼続 0.78%(WARN なし)。#4 不変。#9 質問の感度 25.7%(Q1)〜33.6%(Q11)。#10 8/8 合格(慎重重視 → 毛利元就)。#11 1 位の組 60,000 件で usedOppositeFill 0 件・整合性違反 0 件、補完率(allNear=false)7.15%、共通軸でユーザー水準と武将水準が異なる割合 17.0%(設計書の『約 26%』とは集計の定義が違う可能性あり。情報のみ)。#15 p=0.7 最大 14.7%(全A寄り 直江兼続)、p=0.85 最大 30.9%(同)、全 8 集団 20 人。#16 β0.10: 協調寄り 北条氏康 19.28%・20 人、大胆寄り 長宗我部元親 18.78%・19 人(家康 0.05%)、社交 10.37%、慎重 10.88%、知略 9.92%(各 20 人)。β0.15: 協調寄り 北条氏康 32.36%(WARN 閾値 35% 未満)、大胆寄り 26.29%(0.1%以上は 15 人。合否対象外)。#17 整数%で 1 位=2 位 39.23%、1〜3 位同じ 13.73%、小数 1 桁で同じ 4.91%(≤5% で WARN なし)、差の中央値 0.6・p90 2.0。\n【後続ステップ向けの API メモ】SG.Diagnosis は設計の公開メンバに加えて EXPECTED_GENERAL_COUNT と nearestPair(list) を公開。similarity() の戻り値にも similarityExact を含む。rankGenerals の各行は {general,index,distance,distanceSq,similarity,similarityExact,key,rank}。getRanges() は {leadership:{min,max},…}(凍結済み)。validateData() は違反を Error('VALIDATION_FAILED: 箇所 / …') でまとめて throw、SG.Crest 未ロードなら Error('CREST_NOT_LOADED')、軸幅 0 は RangeError('AXIS_RANGE_ZERO')。SG.Reason.build() は {paragraphs,sharedAxes,levels,diffAxis,usedOppositeFill,allNear}。段落は「」で囲まない素の文。SG.Storage は create/getDefault に加えて KEY・CORRUPT_KEY を公開。縮退時(保存失敗・getItem 例外)に console.warn('Storage: …') を 1 回出すので、browser-check の no-storage シナリオでは 'Storage:' で始まる warning を許可リストに入れること。SG.Util は凍結済み。SG.Crest.svg(g,{idPrefix,title}) は idPrefix 省略時 SG.Util.uid('crest') を使う。\n【既知の問題・設計からの差】(1) crest.js の名前の縦積み: B-14 の文字サイズ(2 文字 64/行送り 70、3 文字 50/56、開始 y≈262)では viewBox 300×400 の下部の帯(y≈385)と重なって収まらないため、シンボル群(中心 150,170・半径 70 の座標で描画)を transform で中心 (150,146)・0.86 倍に縮めて上へ寄せ、名前は 2 文字 font-size 50/行送り 54(1 文字目の baseline y≈276)、3 文字 34/36(y≈262 起点)、下部の帯は罫線 y=350/378・武将名 y=370 にした。FEAT-002 のスクリーンショットで見た目を確認すること。(2) README に転記すべき既知の制限: 集団が協調・慎重寄りに傾くと家康・氏康に集まりやすい(β=0.15 協調寄りで最多 約 32%)。(3) 未実行: check-static.js と browser-check.js は FEAT-002 で作るため、この FEAT では js/*.js に ?. ?? import export http(s)://(SVG 名前空間以外)が無いことを Select-String で確認した(該当 0 件)。"
+}

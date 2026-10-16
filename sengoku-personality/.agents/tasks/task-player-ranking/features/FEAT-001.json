@@ -1,0 +1,35 @@
+{
+  "id": "FEAT-001",
+  "type": "feat",
+  "description": "来場者向け「みんなの結果ランキング」画面の本体を実装する(ranking-plan.md の項目 1〜4)。js/player-ranking.js を新規作成し、index.html・css/style.css・js/app.js・js/results.js・tools/check-static.js・tools/simulate.js に配線。結果画面の「本日のランキングを見る」は来場者向けに置き換え、運営用画面への入口はスタート画面右下 #open-ranking だけにする。既存 browser-check の導線依存箇所を付け替え、既存の全検査が通る状態にする。FEAT-002 より先に行う(FEAT-002 はこれに依存)。",
+  "status": "completed",
+  "steps": [
+    "ranking-plan.md を全部読み、js/results.js の renderRankingScreen(424 行付近〜)、js/app.js の openRanking/onRankingBack/idleLimit/reset を読み直す",
+    "js/player-ranking.js を新規作成: buildRows(counts, highlightId) 純粋関数、render(rootEl, readOnlyStore, handlers, options)(2 タブ 今日/累計、WAI-ARIA tabs のキー操作、TOP3 強調、割合と横棒、0 件文言、注記、戻る、Esc で戻る、try/catch で『集計を読み込めませんでした』)、dispose(rootEl)。reset/removeItem/increment/運営/削除の語とコードを一切含めない。ロード時に DOM/localStorage に触れない。",
+    "index.html: #screen-player-ranking + #player-ranking-root を追加、スタート画面に #btn-player-ranking(みんなの結果ランキング)を追加、script を results.js の後に追加",
+    "js/results.js: 結果画面の data-action=ranking のラベルを『みんなの結果ランキング』に変更し btn-ranking クラスを付ける(運営用 renderRankingScreen は変更しない)",
+    "js/app.js: SCREENS に PLAYER_RANKING、openPlayerRanking(returnTo)(読み取り専用ラッパー=getCounts/getTotalPlayers/isPersistent/todayKey のみ)、onPlayerRankingBack(RESULT へは showScreen('RESULT') だけ=再加算なし、START へは showScreen('START'))、onShowRanking を来場者向けに差し替え、#btn-player-ranking を配線、運営用 openRanking は START からのみ・onRankingBack の RESULT 分岐を削除、idleLimit に PLAYER_RANKING、reset() で SG.PlayerRanking.dispose。els.playerRankingRoot を init で取得",
+    "css/style.css: .btn-ranking と来場者画面のスタイル(TOP3 の金銀銅、is-me、バッジ、バー、2 タブ、48px 以上のボタン、focus-visible、prefers-reduced-motion、390 幅と 1280 幅で崩れない)",
+    "tools/check-static.js: SCRIPT_ORDER に js/player-ranking.js、来場者側ファイル/HTML ブロックに reset・removeItem・リセット・削除・運営・increment が無いことの検査を追加",
+    "tools/simulate.js: buildRows の節を追加(降順・連番・percent・0 件・tier・isMe・widthPct、ロード時に localStorage に触れない)",
+    "tools/browser-check.js: [data-action=\"ranking\"] と #open-ranking の全箇所を洗い出し、運営用画面の確認はスタート画面の #open-ranking 経由に付け替え、smoke の結果画面→ランキング往復は来場者向け画面の検査に直す。閾値・件数は減らさない",
+    "ここまでで node --check、simulate、check-static、browser-check(Chrome)を実行して通す。失敗は原因を直す"
+  ],
+  "acceptance_criteria": [
+    "node tools\\simulate.js が RESULT: ALL PASS(exit 0)",
+    "node tools\\check-static.js が OK(14 files)で、来場者側にリセット系の語・コードが無いことの検査が含まれる",
+    "node tools\\browser-check.js --browser chrome が ALL PASS(153 以上)",
+    "スタート画面と結果画面の両方に『みんなの結果ランキング』ボタンがあり、押すと来場者向け画面が開き、戻るで元の画面に戻る",
+    "結果画面から開閉しても state.counted・回答・結果 DOM・集計の合計が変わらない",
+    "来場者向け画面にリセット・削除・運営用の要素が DOM に一切存在しない。結果画面から運営用画面へは入れない",
+    "storage.js は無変更(git が無いので前後で内容が同じことを確認)"
+  ],
+  "verification": [
+    "node --check js\\player-ranking.js ; node --check js\\app.js ; node --check js\\results.js",
+    "node tools\\simulate.js",
+    "node tools\\check-static.js",
+    "node tools\\browser-check.js --browser chrome"
+  ],
+  "blocked_reason": null,
+  "findings": "検証(cwd=ROOT): node --check(player-ranking/app/results/browser-check)OK、simulate=RESULT: ALL PASS(新節 #18 buildRows 10 項目)、check-static=OK (14 files)、browser-check --browser chrome=ALL PASS (155 checks)。edge・--http smoke・スクリーンショットは未実行(FEAT-002 で実施)。storage.js は未編集(git が無いので内容比較はしていない)。\\n実装: js/player-ranking.js(SG.PlayerRanking: buildRows/render/dispose。タブ 今日/累計、TOP3 tier-gold/silver/bronze、is-me+「あなた」バッジ、10 位より下なら全件表示、Esc で戻る、try/catch+『集計を読み込めませんでした』、保存不可の注記 .pr-note-warn[data-role=volatile])。DOM: #screen-player-ranking > #player-ranking-root、スタート画面に #btn-player-ranking、結果画面のボタンは data-action=ranking のまま文言『みんなの結果ランキング』+btn-ranking。app.js: phase PLAYER_RANKING、openPlayerRanking(returnTo)/onPlayerRankingBack、読み取り専用ラッパー readOnlyStore、運営用 openRanking は #open-ranking(START)からのみで onRankingBack は常に reset()。idleLimit と reset() に対応済み。CSS は .btn-ranking と .pr-* を style.css に追加(reduced-motion は既存の全体指定で無効化される)。check-static: SCRIPT_ORDER に player-ranking.js、js/player-ranking.js と #screen-player-ranking ブロックに reset/removeItem/リセット/削除/運営/increment が無いことの検査(コメントも対象)。\\nbrowser-check の付け替え: smoke・card 系は来場者向け画面の検査、ranking は結果画面で来場者向けを往復+リサイズ後に『最初に戻る』→#open-ranking で運営用の r0〜r3 を確認、no-storage は来場者向けの注記と行(…1人(100%))、layout は来場者画面+運営用の noHScroll、keyboard は来場者向け 2 タブ(Tab/←→/Home/End/Esc/フォーカス戻り)+運営用 3 タブ、screens は ranking-{390,1280}(来場者向け)と ranking-staff-{390,1280}(運営用)を撮影。検査数は減らしていない(153→155)。\\nFEAT-002 向け: 新シナリオ player-ranking は未作成(SCENARIOS に追加し all に含める)。SEED/STATS_KEY/readRanking/startAndAnswer/waitResult/openApp/noHScroll/checkNoProblems/page.addInit が browser-check 内にある。来場者画面セレクタ: #player-ranking-root .pr-title/.pr-tab[role=tab][data-scope=today|total]/.pr-row(.tier-*, .is-me)/.pr-text/.pr-badge/.pr-empty/.pr-note/.pr-note-warn/[data-action=back|show-all]。0 件文言『まだ診断結果がありません。あなたが最初の一人になろう！』。行テキスト例『1位 織田信長型　25人(40%)』。スクリーンショットの所見・README は未更新(項目 6・7)。"
+}

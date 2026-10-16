@@ -1,0 +1,15 @@
+{
+  "verdict": "APPROVED",
+  "counts": { "HIGH": 0, "MEDIUM": 0, "NIT": 1 },
+  "findings": [
+    {
+      "id": 1,
+      "severity": "NIT",
+      "title": "スタート画面のサブタイトルと説明文が語の途中で改行される",
+      "location": "index.html:52-53(css/style.css の .start-sub / .start-desc)",
+      "problem": "start-1280.png・start-390.png の両方で、サブタイトルが「生まれて / いたら、」で改行されている。1280 幅では説明文も「伊達政宗な / ど、」に分かれる。禁則処理で句読点の前の 1 文字が次の行へ送られるためで、要件 §4 の文言を大きく見せるスタート画面で目につく。動作には影響しない。",
+      "fix": ".start-sub / .start-desc に word-break: auto-phrase(Chrome/Edge 119 以降)を付けるか、文節の区切りに <wbr> を入れるか、句を inline-block の span で包む。直したら 390 幅と 1280 幅で撮り直して目視する。"
+    }
+  ],
+  "reviewDoc": "c:\\Users\\村上琉伊\\Desktop\\大学祭\\性格診断ゲーム戦国武将バージョン\\sengoku-personality\\.agents\\tasks\\build-review.md"
+}

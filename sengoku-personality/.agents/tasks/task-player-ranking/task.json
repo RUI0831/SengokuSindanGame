@@ -1,0 +1,7 @@
+{
+  "task_id": "task-player-ranking",
+  "task_description": "来場者(プレイヤー)向けの「みんなの結果ランキング」画面を追加する。スタート画面と結果画面から開ける。リセット・削除は来場者側に置かない。運営用の集計表とリセットは現状維持。詳細は .agents/tasks/ranking-plan.md",
+  "status": "completed",
+  "feature_order": ["FEAT-001", "FEAT-002"],
+  "blocked_reason": null
+}
