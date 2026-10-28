@@ -1996,6 +1996,314 @@ async function scenarioCompat(page, opts, url) {
   checkNoProblems(page, S, 'AC-1', 'シナリオ全体');
 }
 
+// ---- home: 診断中の「ホームへ戻る」(確認ダイアログ・完全リセット・演出中の中断) ----
+const HOME_MSG = '診断を中断してホームに戻りますか？ここまでの回答は消えます。';
+async function scenarioHome(page, opts, url) {
+  const S = 'home';
+  const homeQ = '#screen-question .btn-home';
+  const homeA = '#screen-analyzing .btn-home';
+  const cancelSel = '#dlg-confirm [data-confirm="cancel"]';
+  const okSel = '#dlg-confirm [data-confirm="ok"]';
+  const toastShown = '!document.getElementById("idle-toast").hidden';
+  const total = () => page.eval(totalOf('total'));
+  const stats = () => page.eval('localStorage.getItem(' + JSON.stringify(STATS_KEY) + ')');
+  const st = () => page.eval('SG.App.getState()');
+  // ボタンの矩形・文言・画面内に収まっているか
+  const info = (sel) => page.eval('(function(){var e=document.querySelector(' + JSON.stringify(sel) + ');if(!e){return {ok:false};}var r=e.getBoundingClientRect();' +
+    'return {ok:r.width>0&&r.height>0&&r.left>=0&&r.top>=0&&r.right<=innerWidth&&r.bottom<=innerHeight,w:r.width,h:r.height,' +
+    'text:e.textContent.replace(/\\s+/g," ").trim(),clipped:e.scrollWidth>e.clientWidth+1};})()');
+  const qView = () => page.eval('(function(){var p=[].map.call(document.querySelectorAll("#screen-question .opt"),function(b){return b.getAttribute("aria-pressed");});' +
+    'var f=document.querySelector("#q-progress .progress-fill");' +
+    'return {pressed:p,count:document.getElementById("q-count").textContent,now:document.getElementById("q-progress").getAttribute("aria-valuenow"),' +
+    'fill:f.style.width,nextHidden:document.getElementById("btn-next").hidden};})()');
+  const openHome = async (sel) => {
+    await page.click(sel);
+    await page.waitFor(dlgOpen('dlg-confirm') + '&&SG.App.getState().homeAsking', 2000, '確認ダイアログ');
+  };
+  const closed = () => page.waitFor('!' + dlgOpen('dlg-confirm'), 2000, 'ダイアログが閉じる');
+  const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+  // ======== ① 質問 1〜15 の全画面にボタン / ② 確認ダイアログ(続ける・Esc で保たれる) ========
+  await openApp(page, url);
+  await page.click('#btn-start');
+  await waitQuestion(page, 0);
+  const initial = await qView();
+  const badBtn = [];
+  let sampled = 0;
+  for (let i = 0; i < 15; i++) {
+    await waitQuestion(page, i);
+    const v = await info(homeQ);
+    if (!(v.ok && v.text === 'ホームへ戻る' && v.h >= 44 && v.w >= 44 && !v.clipped)) { badBtn.push('Q' + (i + 1) + ':' + JSON.stringify(v)); }
+    sampled++;
+    if (i === 0) { await settle(); await page.screenshot('home-q1-1280'); }
+    if (i === 7) {
+      // キーボード(Enter)で開く。文言・ボタン・初期フォーカス・Tab の巡回・Esc
+      const ans = PATTERN.slice(0, 7).concat(new Array(8).fill(null));
+      await page.eval('document.querySelector(' + JSON.stringify(homeQ) + ').focus()');
+      await page.key('Enter');
+      await page.waitFor(dlgOpen('dlg-confirm'), 2000, '確認ダイアログ');
+      const d = await page.eval('(function(){var d=document.getElementById("dlg-confirm");var m=d.querySelector(".confirm-msg");' +
+        'return {msg:m.textContent,labelled:!!m.id&&d.getAttribute("aria-labelledby")===m.id,modal:d.matches(":modal"),' +
+        'btns:[].map.call(d.querySelectorAll("button"),function(x){return x.textContent.trim();})};})()');
+      check(S, 'HOME-2', d.msg === HOME_MSG, '確認ダイアログの文言が仕様どおり(' + d.msg + ')');
+      check(S, 'HOME-2', same(d.btns, ['続ける', 'ホームへ戻る']) && d.labelled && d.modal, 'ボタンは「続ける」「ホームへ戻る」、aria-labelledby 付きのモーダル');
+      check(S, 'HOME-2', await focusIs(page, cancelSel), '初期フォーカスは安全側の「続ける」');
+      await page.key('Tab');
+      const t1 = await focusIs(page, okSel);
+      await page.key('Tab');
+      const t2 = await focusIs(page, cancelSel);
+      check(S, 'HOME-2', t1 && t2, 'Tab でダイアログ内の 2 つのボタンだけを巡回する(フォーカストラップ)');
+      await page.screenshot('home-dlg-1280');
+      await page.key('Escape');
+      await closed();
+      let s = await st();
+      let v2 = await qView();
+      check(S, 'HOME-2', s.phase === 'QUESTION' && s.current === 7 && same(s.answers, ans) && !s.homeAsking, 'Esc で閉じると質問位置(Q8)と回答 7 件がそのまま');
+      check(S, 'HOME-2', v2.count === 'Q8 / 15' && v2.now === '8' && v2.pressed.every((p) => p === 'false'), 'Esc 後も Q8 の表示・プログレス・選択状態が保たれる');
+      check(S, 'HOME-2', await focusIs(page, homeQ), 'Esc で閉じるとフォーカスは「ホームへ戻る」ボタンに戻る');
+      // 前の質問(回答済み)へ戻って、「続ける」ボタンで閉じる
+      await page.click('#btn-prev');
+      await waitQuestion(page, 6);
+      await openHome(homeQ);
+      await page.click(cancelSel);
+      await closed();
+      s = await st();
+      v2 = await qView();
+      check(S, 'HOME-2', s.phase === 'QUESTION' && s.current === 6 && same(s.answers, ans) && v2.pressed[PATTERN[6]] === 'true' && v2.pressed.filter((p) => p === 'true').length === 1,
+        '「続ける」で閉じると、Q7 の選択済み回答(' + 'ABCD'[PATTERN[6]] + ')と他の回答が保たれる');
+      await page.click('#btn-next');
+      await waitQuestion(page, 7);
+    }
+    if (i === 14) {
+      // 15 問目: 「続ける」で保たれる → 「ホームへ戻る」で確定
+      const ans = PATTERN.slice(0, 14).concat([null]);
+      await openHome(homeQ);
+      await page.click(cancelSel);
+      await closed();
+      const s = await st();
+      check(S, 'HOME-2', s.phase === 'QUESTION' && s.current === 14 && same(s.answers, ans), 'Q15 でも「続ける」で質問位置と回答が保たれる');
+      // ---- ③ 確定: 完全リセット ----
+      const before = await st();
+      await openHome(homeQ);
+      await page.click(okSel);
+      await page.waitFor('SG.App.getState().phase==="START"', 3000, 'START へ');
+      await closed();
+      const a = await st();
+      const env = await page.eval('({hash:location.hash,search:location.search,ls:Object.keys(localStorage),ss:sessionStorage.length,' +
+        'q:document.getElementById("screen-question").hidden,start:!document.getElementById("screen-start").hidden,' +
+        'focus:document.activeElement===document.getElementById("btn-start"),dlg:document.getElementById("dlg-confirm").childElementCount,' +
+        'result:document.getElementById("result-root").childElementCount})');
+      check(S, 'HOME-3', a.phase === 'START' && a.answers.every((x) => x === null) && a.current === 0 && !a.counted && !a.homeAsking && a.runId === before.runId + 1 && a.topId === null,
+        '「ホームへ戻る」確定でスタート画面に戻り、回答・質問位置・結果状態が消える(runId ' + before.runId + '→' + a.runId + ')');
+      check(S, 'HOME-3', env.q && env.start && env.focus && env.dlg === 0 && env.result === 0, '質問画面は隠れ、スタートボタンにフォーカス、ダイアログの中身も空');
+      check(S, 'HOME-3', env.hash === '' && env.search === '' && env.ls.every((k) => k === STATS_KEY) && env.ss === 0,
+        '回答や中断状態を URL・localStorage・sessionStorage に残さない(keys=' + env.ls.join(',') + ')');
+      check(S, 'HOME-4', (await total()) === 0 && (await stats()) === null, '中断してもランキング集計は増えない(累計 0・保存なし)');
+      await page.click('#btn-start');
+      await waitQuestion(page, 0);
+      const again = await qView();
+      const s2 = await st();
+      check(S, 'HOME-3', same(again, initial) && again.pressed.every((p) => p === 'false') && s2.answers.every((x) => x === null),
+        '再開始すると Q1・回答未選択・プログレスが最初と同じ(' + again.count + ' / valuenow ' + again.now + ' / ' + again.fill + ')');
+      break;
+    }
+    await page.click('#screen-question .opt[data-index="' + PATTERN[i] + '"]');
+  }
+  check(S, 'HOME-1', badBtn.length === 0 && sampled === 15, '質問 Q1〜Q15 の全画面に「ホームへ戻る」があり、画面内・44px 以上・文言が切れない(' + sampled + '/15)' + (badBtn.length ? ' → ' + badBtn.join(' ; ') : ''));
+
+  // ======== ⑤ 診断演出中の中断: 後から結果へ進まない・加算されない ========
+  await openApp(page, url);
+  await page.eval('(function(){window.__res=0;var r=document.getElementById("screen-result");' +
+    'new MutationObserver(function(){if(!r.hidden){window.__res++;}}).observe(r,{attributes:true,attributeFilter:["hidden"]});})()');
+  await startAndAnswer(page, PATTERN);
+  await page.waitFor('SG.App.getState().phase==="ANALYZING"', 2000, 'ANALYZING へ');
+  const va = await info(homeA);
+  check(S, 'HOME-1', va.ok && va.text === 'ホームへ戻る' && va.h >= 44 && va.w >= 44, '診断演出の画面にも「ホームへ戻る」がある(' + va.w + 'x' + va.h + ')');
+  await sleep(300);
+  await openHome(homeA);
+  check(S, 'HOME-1', await focusIs(page, cancelSel), '演出中のダイアログも初期フォーカスは「続ける」');
+  await page.click(okSel);
+  await page.waitFor('SG.App.getState().phase==="START"', 3000, 'START へ');
+  await sleep(3800); // 演出タイマー相当(2.5 秒)をゆうに超えて待つ
+  let s = await st();
+  let r = await page.eval('({res:window.__res,resultHidden:document.getElementById("screen-result").hidden,resultDom:document.getElementById("result-root").childElementCount,' +
+    'an:document.getElementById("screen-analyzing").hidden})');
+  check(S, 'HOME-5', s.phase === 'START' && r.res === 0 && r.resultHidden && r.resultDom === 0 && r.an && !s.counted, '演出中に中断 → 3.8 秒待っても結果画面へ進まない(phase=' + s.phase + ')');
+  check(S, 'HOME-5', (await total()) === 0 && (await stats()) === null, '演出中に中断してもランキングは増えない(累計 0)');
+
+  // ======== 演出中に「続ける」: 保留されていた結果表示が再開し、1 回だけ加算 ========
+  await startAndAnswer(page, PATTERN);
+  await page.waitFor('SG.App.getState().phase==="ANALYZING"', 2000, 'ANALYZING へ');
+  await sleep(100);
+  await openHome(homeA);
+  await sleep(2900); // 演出の満了(約 2.5 秒)を過ぎてもダイアログ表示中は結果へ進まない
+  s = await st();
+  r = await page.eval('({res:window.__res,resultHidden:document.getElementById("screen-result").hidden})');
+  check(S, 'HOME-5', s.phase === 'ANALYZING' && r.resultHidden && !s.counted && (await total()) === 0, 'ダイアログ表示中は演出が満了しても結果に進まず、加算もされない');
+  await page.key('Escape');
+  await page.waitFor('SG.App.getState().phase==="RESULT"', 3000, '「続ける」後に RESULT へ');
+  await sleep(1300);
+  s = await st();
+  check(S, 'HOME-5', s.counted && (await total()) === 1 && s.topId === (await page.eval('SG.Diagnosis.diagnose(' + JSON.stringify(PATTERN) + ').top.general.id')),
+    'Esc(続ける)で保留していた結果表示が再開し、結果は 1 回・ランキングは +1(累計 ' + (await total()) + ')');
+  check(S, 'HOME-6', (await page.eval('window.__res')) === 1, '結果画面が表示された回数は 1 回(' + (await page.eval('window.__res')) + ')');
+  check(S, 'HOME-6', (await page.eval('document.querySelectorAll("#screen-result .btn-home").length')) === 0 && (await page.eval('document.querySelectorAll("#result-root [data-action]").length')) >= 3,
+    '結果画面に「ホームへ戻る」は出ず、既存の結果ボタン(保存・相性・図鑑・ランキング・最初に戻る)はそのまま');
+  await page.click('#result-root [data-action="restart"]').catch(() => null);
+  if ((await st()).phase !== 'START') { await openApp(page, url); }
+
+  // ======== ⑦ 連打・ダブルクリック ========
+  await page.click('#btn-start');
+  await waitQuestion(page, 0);
+  await page.click('#screen-question .opt[data-index="2"]');
+  await waitQuestion(page, 1);
+  await page.eval('(function(){var b=document.querySelector(' + JSON.stringify(homeQ) + ');for(var i=0;i<5;i++){b.click();}})()');
+  await page.waitFor(dlgOpen('dlg-confirm'), 2000, '確認ダイアログ');
+  let n = await page.eval('({msgs:document.querySelectorAll("#dlg-confirm .confirm-msg").length,btns:document.querySelectorAll("#dlg-confirm button").length,asking:SG.App.getState().homeAsking})');
+  check(S, 'HOME-7', n.msgs === 1 && n.btns === 2 && n.asking, '「ホームへ戻る」を 1 回の操作で 5 連打してもダイアログは 1 つだけ');
+  await page.key('Escape');
+  await closed();
+  await page.click(homeQ);
+  await page.click(homeQ); // 2 回目は背景への押下になる(開いた直後の背景クリックは無視される)
+  await sleep(250);
+  check(S, 'HOME-7', await page.eval(dlgOpen('dlg-confirm') + '&&SG.App.getState().homeAsking'), '実マウスのダブルクリックでも、ダイアログは開いたまま(誤って閉じない)');
+  const runBefore = (await st()).runId;
+  await page.eval('(function(){var b=document.querySelector("#dlg-confirm [data-confirm=ok]");b.click();b.click();b.click();})()');
+  await page.waitFor('SG.App.getState().phase==="START"', 3000, 'START へ');
+  await sleep(500);
+  s = await st();
+  check(S, 'HOME-7', s.runId === runBefore + 1 && s.answers.every((x) => x === null) && !s.homeAsking, '「ホームへ戻る」を 3 連打してもリセットは 1 回だけ(runId +' + (s.runId - runBefore) + ')');
+  check(S, 'HOME-7', (await total()) === 1, '連打してもランキングは増えない(累計 ' + (await total()) + ')');
+
+  // ======== ⑨ モバイル幅(390x844)の配置 ========
+  await page.setViewport(390, 844);
+  await page.click('#btn-start');
+  const bad9 = [];
+  let minGap = 9999;
+  for (let i = 0; i < 15; i++) {
+    await waitQuestion(page, i);
+    const m = await page.eval('(function(){var h=document.querySelector(' + JSON.stringify(homeQ) + ');var hr=h.getBoundingClientRect();' +
+      'function gap(a,b){var dx=Math.max(a.left-b.right,b.left-a.right,0),dy=Math.max(a.top-b.bottom,b.top-a.bottom,0);return Math.hypot(dx,dy);}' +
+      'var out={w:hr.width,h:hr.height,inView:hr.left>=0&&hr.right<=innerWidth&&hr.top>=0&&hr.bottom<=innerHeight,hs:document.documentElement.scrollWidth<=innerWidth,min:9999,minNav:9999,hit:false};' +
+      'var sels=["#screen-question .opt","#btn-prev","#btn-next","#q-count","#q-scene","#q-text","#q-progress"];' +
+      'sels.forEach(function(s){[].forEach.call(document.querySelectorAll(s),function(e){if(e.hidden)return;var r=e.getBoundingClientRect();if(!(r.width>0))return;' +
+      'var g=gap(hr,r);if(g<out.min)out.min=g;if((s==="#btn-prev"||s==="#btn-next"||s.indexOf(".opt")>0)&&g<out.minNav)out.minNav=g;});});' +
+      'var e=document.elementFromPoint(hr.left+hr.width/2,hr.top+hr.height/2);out.hit=!!e&&(e===h||h.contains(e));return out;})()');
+    if (m.min < minGap) { minGap = m.min; }
+    if (!(m.w >= 44 && m.h >= 44 && m.inView && m.hs && m.hit && m.min >= 6 && m.minNav >= 16)) { bad9.push('Q' + (i + 1) + ':' + JSON.stringify(m)); }
+    if (i === 0) { await settle(); await page.screenshot('home-q1-390'); }
+    if (i === 14) {
+      await openHome(homeQ);
+      const dm = await page.eval('(function(){var d=document.getElementById("dlg-confirm");var r=d.getBoundingClientRect();var bs=[].map.call(d.querySelectorAll("button"),function(b){var q=b.getBoundingClientRect();return {w:q.width,h:q.height,in:q.left>=0&&q.right<=innerWidth&&q.bottom<=innerHeight};});' +
+        'return {in:r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight,bs:bs,hs:document.documentElement.scrollWidth<=innerWidth};})()');
+      check(S, 'HOME-9', dm.in && dm.hs && dm.bs.length === 2 && dm.bs.every((b) => b.in && b.h >= 44 && b.w >= 44), '390x844 で確認ダイアログが画面内に収まり、2 つのボタンが 44px 以上');
+      await settle();
+      await page.screenshot('home-dlg-390');
+      await page.click(cancelSel);
+      await closed();
+      break;
+    }
+    await page.click('#screen-question .opt[data-index="' + PATTERN[i] + '"]');
+  }
+  check(S, 'HOME-9', bad9.length === 0, '390x844 の Q1〜Q15 で、ボタンが押せる(最前面)・44px 以上・選択肢/前後ボタンから 16px 以上、他の要素と 6px 以上離れる(最小 ' + Math.round(minGap) + 'px)' + (bad9.length ? ' → ' + bad9.join(' ; ') : ''));
+  await page.click(homeQ); // 実際に押せる
+  await page.waitFor(dlgOpen('dlg-confirm'), 2000, '確認ダイアログ');
+  await page.click(okSel);
+  await page.waitFor('SG.App.getState().phase==="START"', 3000, 'START へ');
+  // 演出中(390x844)
+  await startAndAnswer(page, PATTERN);
+  await page.waitFor('SG.App.getState().phase==="ANALYZING"', 2000, 'ANALYZING へ');
+  const ma = await page.eval('(function(){var h=document.querySelector(' + JSON.stringify(homeA) + ').getBoundingClientRect();var s=document.querySelector("#screen-analyzing .analyzing-stage").getBoundingClientRect();' +
+    'var m=document.getElementById("analyzing-msg").getBoundingClientRect();function hit(a,b){return !(a.right<=b.left||b.right<=a.left||a.bottom<=b.top||b.bottom<=a.top);}' +
+    'var e=document.elementFromPoint(h.left+h.width/2,h.top+h.height/2);return {w:h.width,h:h.height,in:h.left>=0&&h.top>=0&&h.right<=innerWidth,overlap:hit(h,s)||hit(h,m),top:!!e&&e.closest(".btn-home")!==null};})()');
+  check(S, 'HOME-9', ma.w >= 44 && ma.h >= 44 && ma.in && !ma.overlap && ma.top, '390x844 の診断演出でも、ボタンは隅にあり、演出・文言と重ならず押せる');
+  await page.screenshot('home-an-390');
+  await page.click(homeA);
+  await page.waitFor(dlgOpen('dlg-confirm'), 2000, '確認ダイアログ');
+  await page.click(okSel);
+  await page.waitFor('SG.App.getState().phase==="START"', 3000, 'START へ');
+  await page.setViewport(1280, 800);
+
+  // ======== ⑩ reduced-motion ========
+  await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await page.click('#btn-start');
+  await waitQuestion(page, 0);
+  const rm = await page.eval('getComputedStyle(document.querySelector(' + JSON.stringify(homeQ) + ')).transitionDuration');
+  check(S, 'HOME-10', /^0(\.0+)?s(, 0(\.0+)?s)*$/.test(rm), 'prefers-reduced-motion では「ホームへ戻る」のトランジションが無効(' + rm + ')');
+  await page.send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+  checkNoProblems(page, S, 'HOME-10', 'シナリオ前半');
+
+  // ======== ⑥ 演出中に中断してすぐ新しい診断 → 結果は 1 回・加算は +1 ========
+  let initId = await page.addInit('window.SG_CONFIG_OVERRIDE={ANSWER_ADVANCE_MS:0};');
+  await openApp(page, url);
+  const base = await total();
+  await page.eval('(function(){window.__res=[];window.__an=[];var r=document.getElementById("screen-result");var a=document.getElementById("screen-analyzing");' +
+    'new MutationObserver(function(){if(!r.hidden){window.__res.push(performance.now());}}).observe(r,{attributes:true,attributeFilter:["hidden"]});' +
+    'new MutationObserver(function(){if(!a.hidden){window.__an.push(performance.now());}}).observe(a,{attributes:true,attributeFilter:["hidden"]});})()');
+  await startAndAnswer(page, PATTERN);
+  await page.waitFor('SG.App.getState().phase==="ANALYZING"', 2000, 'ANALYZING へ');
+  const tA = Date.now();
+  await sleep(100);
+  await openHome(homeA);
+  await page.click(okSel);
+  await page.waitFor('SG.App.getState().phase==="START"', 3000, 'START へ');
+  const tHome = Date.now() - tA;
+  await startAndAnswer(page, PATTERN_LONG); // すぐ新しい診断を最後まで
+  await page.waitFor('SG.App.getState().phase==="ANALYZING"', 3000, '2 回目の ANALYZING へ');
+  const tB = Date.now() - tA;
+  await page.waitFor('SG.App.getState().phase==="RESULT"', 6000, '2 回目の RESULT へ');
+  await sleep(3500); // 前の演出の残骸が遅れて割り込まないか見届ける
+  r = await page.eval('({res:window.__res,an:window.__an,topId:SG.App.getState().topId,eTop:SG.Diagnosis.diagnose(' + JSON.stringify(PATTERN_LONG) + ').top.general.id,' +
+    'answers:SG.App.getState().answers,counted:SG.App.getState().counted})');
+  const lag = r.res[0] - r.an[1];
+  // 前の演出の満了(開始から約 2500ms)が、2 回目の演出の最中に来ていたかを記録する(来ていれば割り込み防止を実際に試せている)
+  const overlapped = 2500 > tB && 2500 < tB + 2500;
+  console.log('  (前の演出の満了 +2500ms / 2 回目の演出 +' + tB + '〜+' + (tB + 2500) + 'ms → ' + (overlapped ? '重なっていた' : '重ならず') + ')');
+  check(S, 'HOME-6', r.res.length === 1 && r.an.length === 2, '中断→即再診断→完走で、結果画面は 1 回だけ表示される(結果 ' + r.res.length + ' 回 / 演出 ' + r.an.length + ' 回)');
+  check(S, 'HOME-6', lag >= 2300 && lag <= 3200, '結果は 2 回目の演出から約 2.5 秒後に出る。前の演出の満了で早まらない(' + Math.round(lag) + 'ms)');
+  check(S, 'HOME-6', (await total()) === base + 1 && r.counted, 'ランキングは +1 だけ(' + base + ' → ' + (await total()) + ')');
+  check(S, 'HOME-6', r.topId === r.eTop && same(r.answers, PATTERN_LONG), '結果は 2 回目の回答に対するもので、前の人の回答が混ざらない');
+  await page.removeInit(initId);
+
+  // ======== ⑧ ダイアログ中の無操作自動復帰 ========
+  initId = await page.addInit('window.SG_CONFIG_OVERRIDE={IDLE_RESET_MS_QUESTION:3000,IDLE_RESET_MS_RESULT:3000,IDLE_WARN_MS:1000};');
+  await openApp(page, url);
+  const base8 = await total();
+  await page.click('#btn-start');
+  await waitQuestion(page, 0);
+  await page.click('#screen-question .opt[data-index="1"]');
+  await waitQuestion(page, 1);
+  await openHome(homeQ);
+  await page.waitFor(toastShown, 5000, 'ダイアログ中の警告');
+  const hit = await page.eval('(function(){var b=document.querySelector("#idle-toast button");var r=b.getBoundingClientRect();var e=document.elementFromPoint(r.left+r.width/2,r.top+r.height/2);' +
+    'return {x:r.left+r.width/2,y:r.top+r.height/2,ok:!!e&&(e===b||b.contains(e)),inDlg:document.getElementById("idle-toast").parentNode===document.getElementById("dlg-confirm")};})()');
+  check(S, 'HOME-8', hit.ok && hit.inDlg, '確認ダイアログ表示中も、無操作の警告がダイアログの手前に出て「続ける」を押せる');
+  await page.clickAt(hit.x, hit.y);
+  await sleep(300);
+  s = await page.eval('({open:' + dlgOpen('dlg-confirm') + ',toast:' + toastShown + ',inBody:document.getElementById("idle-toast").parentNode===document.body,phase:SG.App.getState().phase,asking:SG.App.getState().homeAsking})');
+  check(S, 'HOME-8', s.open && !s.toast && s.inBody && s.phase === 'QUESTION' && s.asking, '警告の「続ける」で警告だけが消え、確認ダイアログは開いたまま');
+  await page.waitFor(toastShown, 5000, '警告 2');
+  await page.waitFor('SG.App.getState().phase==="START"', 4000, '満了');
+  s = await page.eval('({open:' + dlgOpen('dlg-confirm') + ',dlgKids:document.getElementById("dlg-confirm").childElementCount,answers:SG.App.getState().answers,asking:SG.App.getState().homeAsking,' +
+    'inBody:document.getElementById("idle-toast").parentNode===document.body,toast:' + toastShown + '})');
+  check(S, 'HOME-8', !s.open && s.dlgKids === 0 && s.answers.every((x) => x === null) && !s.asking && s.inBody && !s.toast, '放置すると無操作でスタート画面に戻り、ダイアログ・回答・警告が片付く');
+  check(S, 'HOME-8', (await total()) === base8, '無操作リセットでもランキングは増えない');
+  // 診断演出中にダイアログを開いたまま放置(演出は満了しても進まず、無操作で戻る)
+  await startAndAnswer(page, PATTERN);
+  await page.waitFor('SG.App.getState().phase==="ANALYZING"', 2000, 'ANALYZING へ');
+  await sleep(100);
+  await openHome(homeA);
+  await sleep(2700);
+  s = await page.eval('({phase:SG.App.getState().phase,resultHidden:document.getElementById("screen-result").hidden})');
+  check(S, 'HOME-8', s.phase === 'ANALYZING' && s.resultHidden, '演出中のダイアログを放置しても、演出の満了(2.5 秒)では結果に進まない');
+  await page.waitFor('SG.App.getState().phase==="START"', 4000, '無操作で戻る');
+  await sleep(500);
+  s = await page.eval('({open:' + dlgOpen('dlg-confirm') + ',resultDom:document.getElementById("result-root").childElementCount,counted:SG.App.getState().counted})');
+  check(S, 'HOME-8', !s.open && s.resultDom === 0 && !s.counted && (await total()) === base8, '演出中のダイアログを放置すると無操作でスタートへ戻り、ランキングは増えない');
+  await page.removeInit(initId);
+  checkNoProblems(page, S, 'HOME-10', 'シナリオ全体');
+}
+
 const SCENARIOS = {
   smoke: scenarioSmoke,
   questions: scenarioQuestions,
@@ -2014,7 +2322,8 @@ const SCENARIOS = {
   'player-ranking': scenarioPlayerRanking,
   zukan: scenarioZukan,
   compat: scenarioCompat,
-  screens: scenarioScreens
+  screens: scenarioScreens,
+  home: scenarioHome
 };
 
 async function main() {

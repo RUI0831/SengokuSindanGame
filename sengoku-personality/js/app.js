@@ -7,6 +7,9 @@
  * 回答の真実の源は state.answers だけ。スコアや順位は SG.Diagnosis.diagnose(answers) で毎回全部計算し直す
  * (加算するコードがないので、前の質問に戻って回答を変えても二重加算は起こらない)。
  * ランキングへの加算は enterResult() の 1 か所だけで、state.counted で 1 回に限る。
+ * 診断中(QUESTION / ANALYZING)の「ホームへ戻る」: 確認ダイアログ(Results.confirm)で「ホームへ戻る」が確定したときだけ reset() する。
+ *   reset() は「最初に戻る」と同じ完全リセット(回答・結果・タイマー・世代 runId を破棄)。中断した診断は enterResult を通らないので、ランキングに加算されない。
+ *   ダイアログが開いている間に進行用のタイマー(次の問へ・結果表示)が満了したら、その場では実行せず deferred に保留し、「続ける」で再開する。
  * #toast・#idle-toast・#fatal はこのファイルだけが扱う。
  */
 (function (root) {
@@ -52,7 +55,8 @@
       zukanReturnTo: 'START',
       cardResult: null,
       cardBusy: false,
-      locked: false
+      locked: false,
+      homeAsking: false // 「ホームへ戻る」の確認ダイアログを開いている間 true
     };
   }
   function emptyAnswers() {
@@ -71,6 +75,7 @@
   var playerRankingOpener = null; // 来場者向けランキングを開いたボタン(戻るときにフォーカスを返す)
   var zukanOpener = null;         // 図鑑を開いたボタン(戻るときにフォーカスを返す)
   var started = false;
+  var deferred = null; // 確認ダイアログ表示中に満了した進行処理(次の問へ・結果表示)。「続ける」で実行、リセットで破棄
   var els = {};
 
   function $(id) { return root.document.getElementById(id); }
@@ -236,13 +241,16 @@
     var myRun = state.runId;
     later(function () {
       if (myRun !== state.runId || state.phase !== 'QUESTION') { return; }
-      state.locked = false;
-      if (i < QUESTION_COUNT - 1) {
-        state.current = i + 1;
-        renderQuestion(i + 1);
-      } else {
-        enterAnalyzing();
-      }
+      runOrDefer(function () {
+        if (myRun !== state.runId || state.phase !== 'QUESTION') { return; }
+        state.locked = false;
+        if (i < QUESTION_COUNT - 1) {
+          state.current = i + 1;
+          renderQuestion(i + 1);
+        } else {
+          enterAnalyzing();
+        }
+      });
     }, CONFIG.ANSWER_ADVANCE_MS);
   }
 
@@ -262,6 +270,38 @@
     } else {
       enterAnalyzing();
     }
+  }
+
+  // ---- 診断中の「ホームへ戻る」 ----
+  // 確認ダイアログを開いている間は、進行処理(次の問へ・結果表示)をその場で実行せず保留する
+  function runOrDefer(fn) {
+    if (state.homeAsking) { deferred = fn; } else { fn(); }
+  }
+  function onHome() {
+    // 質問中と診断演出中だけ。ダイアログ表示中の再押下・連打は無視する(二重に開かない・二重に処理しない)
+    if ((state.phase !== 'QUESTION' && state.phase !== 'ANALYZING') || state.homeAsking) { return; }
+    state.homeAsking = true;
+    var myRun = state.runId;
+    armIdleTimer(); // 診断演出中でも、ダイアログのまま放置されたら無操作タイマーで戻れるようにする
+    SG.Results.confirm({
+      message: '診断を中断してホームに戻りますか？ここまでの回答は消えます。',
+      okLabel: 'ホームへ戻る',
+      backdropGuardMs: 400, // ホームボタンのダブルクリックの 2 回目(背景への押下)で、開いた直後に閉じてしまわないようにする
+      cancelLabel: '続ける' // 初期フォーカスはこちら(安全側)。Esc・背景クリックも「続ける」
+    }).then(function (ok) {
+      // 無操作リセットなどで世代が変わっていたら、何もしない(リセット済み)
+      if (myRun !== state.runId || !state.homeAsking) { return; }
+      if (ok) {
+        // 「最初に戻る」と同じ完全リセット。回答は保存していないので、ここで消せば何も残らない
+        reset();
+        return;
+      }
+      state.homeAsking = false;
+      armIdleTimer();
+      var fn = deferred;
+      deferred = null;
+      if (fn) { fn(); } // 保留していた進行処理を再開する
+    });
   }
 
   // ---- 診断演出(3 段階の文言。時間は ANALYZE_TOTAL_MS だけで決まる) ----
@@ -285,15 +325,19 @@
     later(function () { if (guard()) { els.analyzingMsg.textContent = ANALYZE_MESSAGES[2]; } }, step * 2);
     later(function () {
       if (!guard()) { return; }
-      try {
-        state.diagnosis = SG.Diagnosis.diagnose(state.answers);
-      } catch (e) {
-        console.error('App: 診断に失敗しました', e);
-        reset();
-        showToast('診断に失敗しました。最初からやり直してください');
-        return;
-      }
-      enterResult();
+      // 確認ダイアログを開いている間は結果へ進まない(「続ける」で再開、「ホームへ戻る」なら破棄される)
+      runOrDefer(function () {
+        if (!guard()) { return; }
+        try {
+          state.diagnosis = SG.Diagnosis.diagnose(state.answers);
+        } catch (e) {
+          console.error('App: 診断に失敗しました', e);
+          reset();
+          showToast('診断に失敗しました。最初からやり直してください');
+          return;
+        }
+        enterResult();
+      });
     }, total);
   }
 
@@ -439,6 +483,7 @@
   // ---- リセット(前の利用者の痕跡を DOM とメモリから消す) ----
   function reset() {
     clearTimers();
+    deferred = null; // 保留中の進行処理は破棄する(後から結果画面へ進ませない)
     var nextRun = state.runId + 1;
     Object.assign(state, initialState());
     state.runId = nextRun;
@@ -457,8 +502,9 @@
     focusEl(els.start);
   }
 
-  // ---- 無操作タイマー(START と ANALYZING では張らない) ----
+  // ---- 無操作タイマー(START と ANALYZING では張らない。ただし「ホームへ戻る」の確認ダイアログ中は張る) ----
   function idleLimit() {
+    if (state.homeAsking) { return CONFIG.IDLE_RESET_MS_QUESTION; } // 確認ダイアログ中は(診断演出中でも)質問中と同じ時間
     if (state.phase === 'QUESTION') { return CONFIG.IDLE_RESET_MS_QUESTION; }
     if (state.phase === 'RESULT' || state.phase === 'RANKING' || state.phase === 'PLAYER_RANKING' || state.phase === 'ZUKAN') { return CONFIG.IDLE_RESET_MS_RESULT; }
     return 0;
@@ -561,6 +607,7 @@
     els.options = Array.prototype.slice.call(root.document.querySelectorAll('#screen-question .opt'));
     els.prev = $('btn-prev');
     els.next = $('btn-next');
+    els.homeBtns = Array.prototype.slice.call(root.document.querySelectorAll('[data-action="home"]'));
     els.analyzingMsg = $('analyzing-msg');
     els.resultRoot = $('result-root');
     els.rankingRoot = $('ranking-root');
@@ -581,6 +628,7 @@
     els.options.forEach(function (b) { b.addEventListener('click', onOption); });
     els.prev.addEventListener('click', onPrev);
     els.next.addEventListener('click', onNext);
+    els.homeBtns.forEach(function (b) { b.addEventListener('click', onHome); });
     var cont = els.idleToast.querySelector('button');
     if (cont) { cont.addEventListener('click', armIdleTimer); }
 
@@ -606,6 +654,7 @@
       zukanReturnTo: state.zukanReturnTo,
       cardBusy: state.cardBusy,
       locked: state.locked,
+      homeAsking: state.homeAsking,
       runId: state.runId,
       topId: state.diagnosis ? state.diagnosis.top.general.id : null,
       hasCardResult: state.cardResult !== null

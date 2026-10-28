@@ -394,7 +394,7 @@
   }
 
   // ---- 確認ダイアログ(#dlg-confirm) ----
-  var pendingConfirm = null; // { resolve, opener, done }
+  var pendingConfirm = null; // { resolve, opener, done, openedAt }
   function finishConfirm(value) {
     var p = pendingConfirm;
     if (!p || p.done) { return; }
@@ -410,7 +410,11 @@
     if (dialogsBound.confirm) { return; }
     dialogsBound.confirm = true;
     dlg.addEventListener('click', function (ev) {
-      if (ev.target === dlg) { finishConfirm(false); return; } // 背景クリック = キャンセル
+      if (ev.target === dlg) {
+        // 背景クリック = キャンセル。ただし開いた直後(ダブルクリックの 2 回目)は誤って閉じないよう無視する
+        if (pendingConfirm && Date.now() - pendingConfirm.openedAt < pendingConfirm.backdropGuardMs) { return; }
+        finishConfirm(false); return;
+      }
       var t = ev.target;
       var btn = t && typeof t.closest === 'function' ? t.closest('[data-confirm]') : null;
       if (btn) { finishConfirm(btn.getAttribute('data-confirm') === 'ok'); }
@@ -418,9 +422,26 @@
     // Esc = キャンセル(既定の閉じ方を止めて、同じ処理を通す)
     dlg.addEventListener('cancel', function (ev) { ev.preventDefault(); finishConfirm(false); });
     dlg.addEventListener('close', function () { if (!dlg.open) { finishConfirm(false); } });
+    // フォーカストラップ: Tab / Shift+Tab はダイアログ内の 2 つのボタンだけを巡回する
+    // (showModal が使えず open 属性で開いた場合でも背景へ出ないようにする)
+    dlg.addEventListener('keydown', function (ev) {
+      if (ev.key !== 'Tab') { return; }
+      var btns = dlg.querySelectorAll('button[data-confirm]');
+      if (btns.length === 0) { return; }
+      var first = btns[0];
+      var last = btns[btns.length - 1];
+      var active = doc().activeElement;
+      if (ev.shiftKey && (active === first || !dlg.contains(active) || active === dlg)) {
+        ev.preventDefault(); last.focus();
+      } else if (!ev.shiftKey && (active === last || !dlg.contains(active) || active === dlg)) {
+        ev.preventDefault(); first.focus();
+      }
+    });
   }
 
-  // { message, okLabel } → Promise<boolean>。true は okLabel のボタンを押したときだけ
+  // { message, okLabel, cancelLabel } → Promise<boolean>。true は okLabel のボタンを押したときだけ
+  // cancelLabel を省略すると「キャンセル」。初期フォーカスは常に安全側(キャンセル側)
+  // backdropGuardMs: 開いてからこの時間(ms)は背景クリックを無視する(ダブルクリックの 2 回目で閉じないため。省略時は 0)
   function confirm(opts) {
     opts = opts || {};
     return new Promise(function (resolve) {
@@ -429,12 +450,12 @@
       if (pendingConfirm) { finishConfirm(false); }
       bindConfirmDialog(dlg);
       var mid = root.SG.Util.uid('dlg-c');
-      pendingConfirm = { resolve: resolve, opener: doc().activeElement, done: false };
+      pendingConfirm = { resolve: resolve, opener: doc().activeElement, done: false, openedAt: Date.now(), backdropGuardMs: Number(opts.backdropGuardMs) > 0 ? Number(opts.backdropGuardMs) : 0 };
       dlg.setAttribute('aria-labelledby', mid);
       dlg.innerHTML = '<div class="dlg-body">' +
         '<p id="' + mid + '" class="confirm-msg">' + esc(opts.message || '') + '</p>' +
         '<div class="confirm-actions">' +
-          '<button type="button" class="btn btn-sub" data-confirm="cancel">キャンセル</button>' +
+          '<button type="button" class="btn btn-sub" data-confirm="cancel">' + esc(opts.cancelLabel || 'キャンセル') + '</button>' +
           '<button type="button" class="btn btn-danger" data-confirm="ok">' + esc(opts.okLabel || 'OK') + '</button>' +
         '</div></div>';
       openDialog(dlg);

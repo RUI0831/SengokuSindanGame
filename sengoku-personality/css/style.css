@@ -232,7 +232,24 @@ button, a, summary { touch-action: manipulation; }
   gap: clamp(10px, 2.4vh, 24px);
 }
 .q-head { display: flex; flex-direction: column; gap: 8px; }
-.q-head-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.q-head-row { display: flex; align-items: center; gap: 10px; }
+/* 「ホームへ戻る」: 目立ちすぎない墨地+金の細罫。診断中の画面の隅に置き、選択肢や「前の質問へ」とは離す(最小 44px) */
+.btn-home {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  min-height: 44px; min-width: 44px; padding: 4px 12px;
+  border: 1px solid var(--gold-dark); border-radius: var(--radius);
+  background: rgba(10, 12, 18, 0.55);
+  color: var(--text-sub);
+  font-family: var(--font-serif); font-size: 14px; font-weight: 700; line-height: 1.2;
+  white-space: nowrap; cursor: pointer;
+  transition: color 120ms ease, border-color 120ms ease, background 120ms ease;
+}
+.btn-home:hover { color: var(--gold-light); border-color: var(--gold); background: rgba(10, 12, 18, 0.8); }
+.btn-home .home-icon { flex: 0 0 auto; width: 18px; height: 18px; }
+.q-head-row .btn-home { margin-left: auto; flex: 0 0 auto; }
+/* 診断演出の画面では左上の隅(金粉の演出より手前) */
+.btn-home-corner { position: absolute; z-index: 2; top: 12px; left: 12px; }
 .q-count { font-family: var(--font-serif); font-weight: 700; font-size: 20px; color: var(--gold-light); letter-spacing: 0.04em; }
 .q-scene {
   font-size: 13px; color: var(--text-sub);
@@ -297,6 +314,7 @@ button, a, summary { touch-action: manipulation; }
 
 /* ---- 診断演出 ---- */
 .screen-analyzing {
+  position: relative; /* 左上の「ホームへ戻る」の基準 */
   display: flex; flex-direction: column; align-items: center; justify-content: center;
   gap: 32px; padding: 24px 16px;
   overflow: hidden;

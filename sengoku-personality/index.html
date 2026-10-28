@@ -91,6 +91,10 @@
         <div class="q-head-row">
           <span id="q-count" class="q-count">Q1 / 15</span>
           <span id="q-scene" class="q-scene"></span>
+          <button type="button" id="btn-home-q" class="btn-home" data-action="home">
+            <svg class="home-icon" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z" fill="currentColor"/></svg>
+            <span>ホームへ戻る</span>
+          </button>
         </div>
         <div id="q-progress" class="progress" role="progressbar" aria-label="回答の進み具合"
              aria-valuemin="1" aria-valuemax="15" aria-valuenow="1" aria-valuetext="15問中1問目">
@@ -135,6 +139,11 @@
       </svg>
     </div>
     <p id="analyzing-msg" class="analyzing-msg" role="status" aria-live="polite"></p>
+    <!-- 診断中でもホームへ戻れる(確認ダイアログあり。画面の左上の隅) -->
+    <button type="button" id="btn-home-a" class="btn-home btn-home-corner" data-action="home">
+      <svg class="home-icon" aria-hidden="true" focusable="false" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20"><path d="M12 3 2 12h3v8h5v-5h4v5h5v-8h3z" fill="currentColor"/></svg>
+      <span>ホームへ戻る</span>
+    </button>
   </section>
 
   <!-- 結果画面(中身は results.js が描く。reset で空にする) -->
