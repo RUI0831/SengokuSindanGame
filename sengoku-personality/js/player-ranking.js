@@ -75,13 +75,14 @@
           ' aria-controls="' + pid + '-panel">' + esc(t.label) + '</button>';
       }).join('') + '</div>' +
       '<div class="pr-panel" id="' + pid + '-panel" role="tabpanel"></div>' +
-      '<p class="pr-note">この端末・このブラウザの集計です(他の端末とは共有されません)</p>' +
+      '<p class="pr-note" data-role="scope-note">この端末・このブラウザの集計です(他の端末とは共有されません)</p>' +
       '<p class="pr-note pr-note-warn" data-role="volatile" hidden>この環境では集計を保存できません</p>' +
       '<div class="pr-actions"><button type="button" class="btn btn-primary pr-back" data-action="back">戻る</button></div>' +
       '</div>';
 
     var panel = rootEl.querySelector('.pr-panel');
     var volatileNote = rootEl.querySelector('[data-role="volatile"]');
+    var scopeNote = rootEl.querySelector('[data-role="scope-note"]');
 
     // 選択中の範囲の一覧を描く。読み込みに失敗しても例外は外に出さず、案内の文言を出す
     function draw() {
@@ -95,6 +96,7 @@
       try {
         var persistent = store.isPersistent();
         volatileNote.hidden = persistent;
+        if (typeof store.isShared === 'function' && store.isShared()) { scopeNote.textContent = 'いろいろな端末で診断した人たちの集計です'; }
         var counts = store.getCounts(view.scope);
         if (!counts.length && !persistent) {
           html = '<p class="pr-empty">集計を読み込めませんでした</p>';

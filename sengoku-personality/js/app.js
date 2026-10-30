@@ -393,11 +393,35 @@
   }
 
   // ---- ランキング ----
+  // 全端末共通の集計を取り直してから画面を出す。待つのは最大 1.5 秒(つながらなければ端末内の集計で出す)
+  var REFRESH_WAIT_MS = 1500;
+  var rankingOpening = false;
+  function refreshThen(fn) {
+    if (rankingOpening) { return; }
+    rankingOpening = true;
+    var myRun = state.runId;
+    var phase = state.phase;
+    var done = false;
+    var go = function () {
+      if (done) { return; }
+      done = true;
+      rankingOpening = false;
+      if (myRun !== state.runId || state.phase !== phase) { return; } // 待つ間にリセット・遷移した
+      fn();
+    };
+    var p;
+    try { p = store.refresh(); } catch (e) { p = null; }
+    if (!p || typeof p.then !== 'function') { go(); return; }
+    p.then(go, go);
+    root.setTimeout(go, REFRESH_WAIT_MS);
+  }
   function openRanking(returnTo) {
-    state.rankingReturnTo = returnTo;
-    SG.Results.renderRankingScreen(els.rankingRoot, store, { onBack: onRankingBack });
-    showScreen('RANKING');
-    focusHeading('RANKING');
+    refreshThen(function () {
+      state.rankingReturnTo = returnTo;
+      SG.Results.renderRankingScreen(els.rankingRoot, store, { onBack: onRankingBack });
+      showScreen('RANKING');
+      focusHeading('RANKING');
+    });
   }
   // 運営用の画面からは、いつでも最初の画面へ戻る
   function onRankingBack() {
@@ -412,6 +436,7 @@
       getCounts: function (scope) { return store.getCounts(scope); },
       getTotalPlayers: function (scope) { return store.getTotalPlayers(scope); },
       isPersistent: function () { return store.isPersistent(); },
+      isShared: function () { return store.isShared(); },
       todayKey: function () { return store.todayKey(); }
     };
   }
@@ -419,12 +444,14 @@
   function openPlayerRanking(returnTo) {
     if (state.phase !== returnTo || (returnTo !== 'START' && returnTo !== 'RESULT')) { return; }
     if (returnTo === 'RESULT' && !state.diagnosis) { return; }
-    state.rankingReturnTo = returnTo;
     playerRankingOpener = root.document.activeElement;
-    var highlightId = returnTo === 'RESULT' ? state.diagnosis.top.general.id : null;
-    SG.PlayerRanking.render(els.playerRankingRoot, readOnlyStore(), { onBack: onPlayerRankingBack }, { highlightId: highlightId });
-    showScreen('PLAYER_RANKING');
-    focusHeading('PLAYER_RANKING');
+    refreshThen(function () {
+      state.rankingReturnTo = returnTo;
+      var highlightId = returnTo === 'RESULT' ? state.diagnosis.top.general.id : null;
+      SG.PlayerRanking.render(els.playerRankingRoot, readOnlyStore(), { onBack: onPlayerRankingBack }, { highlightId: highlightId });
+      showScreen('PLAYER_RANKING');
+      focusHeading('PLAYER_RANKING');
+    });
   }
   function onShowRanking() {
     openPlayerRanking('RESULT');

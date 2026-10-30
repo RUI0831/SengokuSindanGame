@@ -565,7 +565,9 @@
           (t.scope === 'today' ? '<small class="tab-date">' + esc(dateLabel(store.todayKey())) + '</small>' : '') + '</button>';
       }).join('') + '</div>' +
       '<div class="ranking-panel" id="' + pid + '-panel" role="tabpanel"></div>' +
-      '<p class="note">集計はこの端末・このブラウザの中だけに保存され、他の端末とは共有されません。</p>' +
+      (store.isShared && store.isShared()
+        ? '<p class="note">集計は全端末で共通です。ここからのリセットでは共通の集計は消えず、この端末の控えだけが消えます。</p>'
+        : '<p class="note">集計はこの端末・このブラウザの中だけに保存され、他の端末とは共有されません。</p>') +
       (store.isPersistent() ? '' : '<p class="warn-text">この環境では集計を保存できません(このページを閉じると消えます)。</p>') +
       '<div class="ranking-actions"><button type="button" class="btn" data-action="back">戻る</button></div>' +
       '<details class="staff-menu"><summary>運営用メニュー</summary>' +
