@@ -465,6 +465,75 @@
     });
   }
 
+  // ---- 運営用パスワードの入力(#dlg-pass) ----
+  // opts.verify(パスワード) → Promise<'ok' | 'wrong' | 'error'>。'ok' のときだけ閉じて true を返す。キャンセルは false
+  var pendingPass = null; // { resolve, opener, busy }
+  function finishPass(value) {
+    var p = pendingPass;
+    if (!p) { return; }
+    pendingPass = null;
+    var dlg = byId('dlg-pass');
+    if (dlg && dlg.open) { closeDialog(dlg, value ? 'ok' : 'cancel'); }
+    if (dlg) { dlg.replaceChildren(); }
+    restoreFocus(p.opener);
+    p.resolve(value);
+  }
+  function bindPassDialog(dlg) {
+    if (dialogsBound.pass) { return; }
+    dialogsBound.pass = true;
+    dlg.addEventListener('cancel', function (ev) { ev.preventDefault(); finishPass(false); });
+    dlg.addEventListener('close', function () { if (!dlg.open) { finishPass(false); } });
+    dlg.addEventListener('click', function (ev) {
+      if (ev.target === dlg) { finishPass(false); return; }
+      var t = ev.target;
+      if (t && typeof t.closest === 'function' && t.closest('[data-pass="cancel"]')) { finishPass(false); }
+    });
+  }
+  function askPassword(opts) {
+    opts = opts || {};
+    return new Promise(function (resolve) {
+      var dlg = byId('dlg-pass');
+      if (!dlg || typeof opts.verify !== 'function') { resolve(false); return; }
+      if (pendingPass) { finishPass(false); }
+      bindPassDialog(dlg);
+      var mid = root.SG.Util.uid('dlg-p');
+      var me = pendingPass = { resolve: resolve, opener: doc().activeElement, busy: false };
+      dlg.setAttribute('aria-labelledby', mid);
+      dlg.innerHTML = '<form class="dlg-body" autocomplete="off">' +
+        '<p id="' + mid + '" class="confirm-msg">運営用パスワードを入力してください</p>' +
+        '<input type="password" class="pass-input" inputmode="numeric" autocomplete="off" aria-label="運営用パスワード" aria-describedby="' + mid + '-err">' +
+        '<p id="' + mid + '-err" class="pass-error" role="alert"></p>' +
+        '<div class="confirm-actions">' +
+          '<button type="button" class="btn btn-sub" data-pass="cancel">キャンセル</button>' +
+          '<button type="submit" class="btn btn-primary">入る</button>' +
+        '</div></form>';
+      var form = dlg.querySelector('form');
+      var input = dlg.querySelector('input');
+      var err = dlg.querySelector('.pass-error');
+      var submit = dlg.querySelector('button[type="submit"]');
+      form.addEventListener('submit', function (ev) {
+        ev.preventDefault();
+        if (me.busy || pendingPass !== me) { return; }
+        me.busy = true;
+        submit.disabled = true;
+        err.textContent = '確認しています…';
+        var p;
+        try { p = opts.verify(input.value); } catch (e) { p = Promise.resolve('error'); }
+        Promise.resolve(p).then(function (r) { return r; }, function () { return 'error'; }).then(function (r) {
+          if (pendingPass !== me) { return; }
+          me.busy = false;
+          submit.disabled = false;
+          if (r === 'ok') { finishPass(true); return; }
+          input.value = '';
+          err.textContent = r === 'wrong' ? 'パスワードが違います' : '確認できませんでした。通信を確かめてもう一度お試しください';
+          input.focus();
+        });
+      });
+      openDialog(dlg);
+      input.focus();
+    });
+  }
+
   // ---- 画像のプレビュー(#dlg-card) ----
   var card = null; // { onClosed, opener, done }
   // 閉じる処理の本体(冪等。2 回目以降は何もしない)
@@ -536,6 +605,7 @@
       g.replaceChildren();
     }
     finishConfirm(false);
+    finishPass(false);
     closeCardPreview();
   }
 
@@ -566,13 +636,14 @@
       }).join('') + '</div>' +
       '<div class="ranking-panel" id="' + pid + '-panel" role="tabpanel"></div>' +
       (store.isShared && store.isShared()
-        ? '<p class="note">集計は全端末で共通です。ここからのリセットでは共通の集計は消えず、この端末の控えだけが消えます。</p>'
+        ? '<p class="note">集計は全端末で共通です。リセットすると、すべての端末の集計が消えます。</p>'
         : '<p class="note">集計はこの端末・このブラウザの中だけに保存され、他の端末とは共有されません。</p>') +
       (store.isPersistent() ? '' : '<p class="warn-text">この環境では集計を保存できません(このページを閉じると消えます)。</p>') +
       '<div class="ranking-actions"><button type="button" class="btn" data-action="back">戻る</button></div>' +
       '<details class="staff-menu"><summary>運営用メニュー</summary>' +
         '<p>展示担当者向けの操作です。</p>' +
         '<button type="button" class="btn-staff" data-action="reset">集計をリセット</button>' +
+        '<p class="warn-text" data-role="reset-error" role="alert" hidden>リセットできませんでした。通信を確かめて、もう一度お試しください。</p>' +
       '</details>' +
       '</div>';
 
@@ -642,9 +713,13 @@
       } else if (name === 'reset') {
         confirm({ message: '集計をすべて消します。この操作は取り消せません。', okLabel: 'リセットする' }).then(function (ok) {
           if (!ok || !rootEl.contains(panel)) { return; }
-          store.reset();
-          view.date = null;
-          draw();
+          // 共通集計につながっているときは Promise(サーバーの集計も消す)、端末内だけのときは true
+          return Promise.resolve(store.reset()).then(function (done) {
+            if (!rootEl.contains(panel)) { return; }
+            if (!done) { var w = rootEl.querySelector('[data-role="reset-error"]'); if (w) { w.hidden = false; } return; }
+            view.date = null;
+            draw();
+          });
         });
       }
     });
@@ -693,6 +768,7 @@
   }
 
   SG.Results = {
+    askPassword: askPassword,
     showResult: showResult,
     setSaveBusy: setSaveBusy,
     openGeneralDialog: openGeneralDialog,

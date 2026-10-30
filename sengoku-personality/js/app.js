@@ -509,6 +509,7 @@
 
   // ---- リセット(前の利用者の痕跡を DOM とメモリから消す) ----
   function reset() {
+    if (store) { store.clearAdmin(); } // 運営用パスワードは画面を離れたら忘れる
     clearTimers();
     deferred = null; // 保留中の進行処理は破棄する(後から結果画面へ進ませない)
     var nextRun = state.runId + 1;
@@ -648,7 +649,12 @@
     els.start.addEventListener('click', startDiagnosis);
     els.openRanking.addEventListener('click', function (ev) {
       ev.preventDefault();
-      if (state.phase === 'START') { openRanking('START'); }
+      if (state.phase !== 'START') { return; }
+      // 共通集計を使っているときは、運営用パスワードを確かめてから開く(端末内だけの集計では守る対象がないので直接開く)
+      if (!store.hasRemote()) { openRanking('START'); return; }
+      SG.Results.askPassword({ verify: function (pw) { return store.verifyAdmin(pw); } }).then(function (ok) {
+        if (ok && state.phase === 'START') { openRanking('START'); }
+      });
     });
     els.playerRankingBtn.addEventListener('click', function () { openPlayerRanking('START'); });
     els.zukanBtn.addEventListener('click', function () { openZukan('START'); });

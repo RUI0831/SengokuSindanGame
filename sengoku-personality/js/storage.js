@@ -133,6 +133,25 @@
         throw e;
       });
     }
+    // ---- 運営用(パスワードはサーバーで検証する) ----
+    var adminPassword = null;
+    function adminUrl() { return remoteUrl.replace(/\/stats$/, '/admin'); }
+    // 運営用 API を呼ぶ。解決値は { ok, status }(通信できなければ status 0)
+    function adminCall(action, password) {
+      var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+      var timer = ctl ? setTimeout(function () { ctl.abort(); }, REMOTE_TIMEOUT_MS) : null;
+      var init = { method: 'POST', cache: 'no-store', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action, password: password }) };
+      if (ctl) { init.signal = ctl.signal; }
+      return Promise.resolve().then(function () { return fetchFn(adminUrl(), init); }).then(function (res) {
+        if (timer) { clearTimeout(timer); }
+        return { ok: !!(res && res.ok), status: res ? res.status : 0 };
+      }, function () {
+        if (timer) { clearTimeout(timer); }
+        return { ok: false, status: 0 };
+      });
+    }
+
     // 未送信の加算を 1 件ずつ送る。失敗したらそこで止めて、次の機会に再送する
     function flush() {
       if (!remoteUrl) { return Promise.resolve(); }
@@ -223,6 +242,17 @@
       // 全端末共通の集計につながっているか
       isShared: function () { return remoteData !== null; },
       refresh: refresh,
+      // 共通集計の API を使う設定か(運営用メニューの入口にパスワードが必要かどうか)
+      hasRemote: function () { return remoteUrl !== null; },
+      // パスワードをサーバーで確かめる。解決値は 'ok' | 'wrong' | 'error'。合っていれば覚えておく(リセットで使う)
+      verifyAdmin: function (password) {
+        if (!remoteUrl) { return Promise.resolve('error'); }
+        return adminCall('verify', password).then(function (r) {
+          if (r.ok) { adminPassword = password; return 'ok'; }
+          return r.status === 401 ? 'wrong' : 'error';
+        });
+      },
+      clearAdmin: function () { adminPassword = null; },
       // 結果確定時に 1 位の武将 id を 1 件加算する。例外は外へ出さない
       increment: function (id) {
         try {
@@ -272,15 +302,26 @@
         }
       },
       // 集計をすべて消す(退避キーも消す)
+      // 共通集計につながっているときはサーバーの集計も消す(解決値は成功したかどうか)。端末内だけのときは同期的に消して true
       reset: function () {
         mem = emptyData();
-        if (!backend) { return; }
-        try {
-          backend.removeItem(KEY);
-          backend.removeItem(CORRUPT_KEY);
-        } catch (e) {
-          warn('Storage: リセットに失敗しました');
+        if (backend) {
+          try {
+            backend.removeItem(KEY);
+            backend.removeItem(CORRUPT_KEY);
+          } catch (e) {
+            warn('Storage: リセットに失敗しました');
+          }
         }
+        if (!remoteUrl) { return true; }
+        if (adminPassword === null) { return Promise.resolve(false); }
+        return adminCall('reset', adminPassword).then(function (r) {
+          if (!r.ok) { return false; }
+          pending = [];
+          savePending();
+          remoteData = emptyData();
+          return true;
+        });
       },
       todayKey: function () { return todayKey(); }
     };

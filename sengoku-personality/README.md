@@ -114,7 +114,7 @@ python -m http.server 8000
 - Vercel に置いて http(s) で開いたときは、診断結果(1 位の武将 id と日付だけ)を pi/stats.js 経由で Upstash Redis に送り、**どの端末の結果も同じ集計に入ります**。ランキング画面を開くたびに最新の集計を取り直します(待つのは最大 1.5 秒。つながらなければ端末内の集計を出します)。
 - 送信に失敗した分は端末に残り、次にランキングを開く・診断を終えるときに再送します。
 - 設定: Vercel の Marketplace で Upstash for Redis を追加し、プロジェクトに環境変数 UPSTASH_REDIS_REST_URL と UPSTASH_REDIS_REST_TOKEN(または KV_REST_API_URL と KV_REST_API_TOKEN)を入れて再デプロイします。未設定だと API は 503 を返し、従来どおり端末内だけで集計します。
-- 共通の集計は運営用メニューのリセットでは消えません(その端末の控えだけが消えます)。消すときは Upstash のコンソールでキー sengoku-personality:v1:stats を削除します。
+- 運営用(集計)はパスワードで守られます。Vercel の環境変数 `ADMIN_PASSWORD` にパスワードを入れてください(コードには書きません。未設定だと運営用に入れません)。入ったあと「運営用メニュー」→「集計をリセット」で、全端末の共通集計を消せます。
 - ile:// や python -m http.server では /api/stats がないため端末内だけの集計です(ブラウザのコンソールに /api/stats の 404 が出ます)。
 - 認証はなく、API は武将 id の加算だけを受け付けます。いたずらの加算は防げないので、展示用途向けです。
 ## 7. データの変更方法
